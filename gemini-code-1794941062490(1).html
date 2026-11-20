@@ -1,0 +1,2417 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Visor Operativo Ferroviario · Trenes Argentinos Larga Distancia</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Fuente Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+
+  <style>
+    * {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    /* Variables de tema: Modo Claro (por defecto) y Modo Oscuro */
+    :root {
+      --bg-app: #f1f5f9;
+      --bg-sidebar: #ffffff;
+      --bg-card: #f8fafc;
+      --bg-card-hover: #f1f5f9;
+      --bg-control: #e2e8f0;
+      --bg-control-hover: #cbd5e1;
+      --border-main: #cbd5e1;
+      --border-subtle: #e2e8f0;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --text-muted: #64748b;
+      --accent-text: #0369a1;
+      --tooltip-bg: #ffffff;
+      --tooltip-text: #0f172a;
+      --tooltip-border: #cbd5e1;
+      --city-bg: rgba(255, 255, 255, 0.94);
+      --city-text: #0f172a;
+      --city-border: rgba(100, 116, 139, 0.55);
+      --city-sub-bg: rgba(248, 250, 252, 0.90);
+      --city-sub-text: #334155;
+      --scroll-track: #f1f5f9;
+      --scroll-thumb: #cbd5e1;
+      --chart-grid: rgba(148, 163, 184, 0.28);
+      --chart-axis: #64748b;
+      --chart-cursor: #0284c7;
+    }
+
+    body.theme-dark {
+      --bg-app: #020617;
+      --bg-sidebar: #0f172a;
+      --bg-card: #020617;
+      --bg-card-hover: #0f172a;
+      --bg-control: #1e293b;
+      --bg-control-hover: #334155;
+      --border-main: #1e293b;
+      --border-subtle: #1e293b;
+      --text-primary: #f8fafc;
+      --text-secondary: #cbd5e1;
+      --text-muted: #94a3b8;
+      --accent-text: #7dd3fc;
+      --tooltip-bg: #0f172a;
+      --tooltip-text: #f8fafc;
+      --tooltip-border: #334155;
+      --city-bg: rgba(15, 23, 42, 0.90);
+      --city-text: #f8fafc;
+      --city-border: rgba(148, 163, 184, 0.45);
+      --city-sub-bg: rgba(15, 23, 42, 0.82);
+      --city-sub-text: #e2e8f0;
+      --scroll-track: #0f172a;
+      --scroll-thumb: #334155;
+      --chart-grid: rgba(71, 85, 105, 0.35);
+      --chart-axis: #94a3b8;
+      --chart-cursor: #38bdf8;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+      background-color: var(--bg-app);
+      color: var(--text-primary);
+    }
+
+    .app-sidebar {
+      background-color: var(--bg-sidebar);
+      border-color: var(--border-main);
+    }
+
+    .app-card {
+      background-color: var(--bg-card);
+      border-color: var(--border-subtle);
+    }
+
+    .app-card-interactive {
+      background-color: var(--bg-card);
+      border-color: var(--border-subtle);
+      transition: background-color 0.15s ease, transform 0.12s ease;
+    }
+
+    .app-card-interactive:hover {
+      background-color: var(--bg-card-hover);
+    }
+
+    .app-control {
+      background-color: var(--bg-control);
+      color: var(--text-primary);
+      border-color: var(--border-main);
+    }
+
+    .app-control:hover {
+      background-color: var(--bg-control-hover);
+    }
+
+    .txt-primary { color: var(--text-primary); }
+    .txt-secondary { color: var(--text-secondary); }
+    .txt-muted { color: var(--text-muted); }
+    .txt-accent { color: var(--accent-text); }
+    .brd-subtle { border-color: var(--border-subtle); }
+    .brd-main { border-color: var(--border-main); }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      min-height: 260px;
+      z-index: 1;
+    }
+
+    /* Pelotitas circulares animadas con indicador direccional */
+    .train-ball {
+      width: 21px;
+      height: 21px;
+      border-radius: 9999px;
+      border: 2.5px solid #ffffff;
+      box-shadow: 0 0 12px rgba(0, 0, 0, 0.65);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.12s linear;
+    }
+
+    .train-ball-arrow {
+      width: 11px;
+      height: 11px;
+      display: block;
+      filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.85));
+    }
+
+    /* Colores por Línea Ferroviaria */
+    .train-ball-mitre {
+      background-color: #2563eb; /* Línea Mitre · Azul */
+      box-shadow: 0 0 12px rgba(37, 99, 235, 0.85), 0 0 3px #ffffff;
+    }
+
+    .train-ball-roca {
+      background-color: #ea580c; /* Línea Roca · Naranja */
+      box-shadow: 0 0 12px rgba(234, 88, 12, 0.85), 0 0 3px #ffffff;
+    }
+
+    .train-ball-sanmartin {
+      background-color: #10b981; /* Línea San Martín · Verde Esmeralda */
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.85), 0 0 3px #ffffff;
+    }
+
+    .train-ball-sarmiento {
+      background-color: #9333ea; /* Línea Sarmiento Larga Dist. · Violeta */
+      box-shadow: 0 0 12px rgba(147, 51, 234, 0.85), 0 0 3px #ffffff;
+    }
+
+    .train-ball-sarmiento-dif {
+      background-color: #facc15; /* Línea Sarmiento Diferencial · Ámbar */
+      box-shadow: 0 0 12px rgba(250, 204, 21, 0.85), 0 0 3px #ffffff;
+    }
+
+    /* Tooltips adaptativos en Leaflet */
+    .leaflet-tooltip.adaptive-tooltip {
+      background-color: var(--tooltip-bg);
+      color: var(--tooltip-text);
+      border: 1px solid var(--tooltip-border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 12px;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.28);
+    }
+
+    .leaflet-tooltip.adaptive-tooltip::before {
+      border-top-color: var(--tooltip-bg);
+    }
+
+    /* Etiquetas permanentes de cabeceras (siempre visibles) */
+    .leaflet-tooltip.cabecera-label {
+      background-color: var(--city-bg);
+      color: var(--city-text);
+      border: 1.5px solid var(--city-border);
+      border-radius: 6px;
+      padding: 2px 7px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+      white-space: nowrap;
+    }
+
+    .leaflet-tooltip.cabecera-label::before {
+      display: none;
+    }
+
+    /* Etiquetas de localidades intermedias (visibles sólo con zoom activado) */
+    .leaflet-tooltip.localidad-label {
+      background-color: var(--city-sub-bg);
+      color: var(--city-sub-text);
+      border: 1px solid var(--city-border);
+      border-radius: 5px;
+      padding: 1.5px 6px;
+      font-size: 10px;
+      font-weight: 600;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+      white-space: nowrap;
+    }
+
+    .leaflet-tooltip.localidad-label::before {
+      display: none;
+    }
+
+    /* Control de capas Leaflet adaptativo */
+    .leaflet-control-layers {
+      background-color: var(--tooltip-bg) !important;
+      color: var(--tooltip-text) !important;
+      border: 1px solid var(--tooltip-border) !important;
+      border-radius: 12px !important;
+      padding: 6px 10px !important;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.25) !important;
+    }
+
+    .leaflet-control-layers-expanded label {
+      color: var(--tooltip-text) !important;
+      font-size: 12px !important;
+      font-weight: 500 !important;
+    }
+
+    /* Botones activos */
+    .basemap-btn.active,
+    .analytics-tab-btn.active,
+    .chart-mode-btn.active {
+      background-color: #0284c7 !important;
+      color: #ffffff !important;
+      border-color: #38bdf8 !important;
+    }
+
+    /* Barra de desplazamiento */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--scroll-track);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--scroll-thumb);
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="flex flex-col lg:flex-row h-screen w-full overflow-hidden">
+
+  <!-- Panel Lateral de Control, Leyenda y Cinemática -->
+  <aside class="app-sidebar w-full lg:w-[450px] xl:w-[475px] border-b lg:border-b-0 lg:border-r flex flex-col max-h-[48vh] lg:max-h-screen shrink-0 z-10 shadow-xl">
+
+    <!-- Encabezado con Selector de Tema Claro / Oscuro -->
+    <header class="p-3.5 border-b brd-subtle">
+      <div class="flex items-start justify-between gap-2">
+        <div>
+          <span class="inline-flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-sky-600 dark:text-sky-400 bg-sky-500/10 border border-sky-500/25 px-2.5 py-0.5 rounded-full">
+            Conectividad Ferroviaria Larga Distancia
+          </span>
+          <h1 class="txt-primary text-base sm:text-lg font-bold mt-1 leading-snug">
+            Mitre · Roca · San Martín · Sarmiento
+          </h1>
+        </div>
+
+        <!-- Botón de Cambio de Tema (Fondo Oscuro / Fondo Claro, sin emoji) -->
+        <button
+          id="btn-theme-toggle"
+          type="button"
+          title="Alternar entre fondo claro y fondo oscuro"
+          class="app-control shrink-0 inline-flex items-center justify-center px-3 py-1.5 rounded-lg border text-[11px] font-semibold cursor-pointer shadow-sm"
+        >
+          <span id="theme-label">Fondo Oscuro</span>
+        </button>
+      </div>
+
+      <div id="osm-status" class="txt-muted mt-1.5 text-[11px] flex items-center gap-1.5">
+        <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+        <span id="route-status-text">4 Corredores · 25 Servicios Consolidados · 54 Estaciones</span>
+      </div>
+    </header>
+
+    <!-- Contenido Desplazable del Panel -->
+    <div class="flex-1 overflow-y-auto p-3.5 space-y-3.5">
+
+      <!-- Leyenda Integrada -->
+      <section class="app-card border rounded-xl p-3 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="txt-secondary text-[11px] font-semibold uppercase tracking-wider">
+            Formaciones y Corredores
+          </span>
+          <span class="txt-muted text-[10px]">Con flecha de sentido</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
+          <div class="app-sidebar flex items-center gap-2 border brd-subtle rounded-lg p-1.5">
+            <span class="w-3.5 h-3.5 rounded-full bg-[#2563eb] border-2 border-white inline-block shadow shrink-0"></span>
+            <div>
+              <div class="txt-primary font-semibold text-[11.5px]">Línea Mitre</div>
+              <div class="txt-muted text-[10px]">Retiro ↔ Rosario Norte</div>
+            </div>
+          </div>
+
+          <div class="app-sidebar flex items-center gap-2 border brd-subtle rounded-lg p-1.5">
+            <span class="w-3.5 h-3.5 rounded-full bg-[#ea580c] border-2 border-white inline-block shadow shrink-0"></span>
+            <div>
+              <div class="txt-primary font-semibold text-[11.5px]">Línea Roca</div>
+              <div class="txt-muted text-[10px]">Constitución ↔ Mar del Plata</div>
+            </div>
+          </div>
+
+          <div class="app-sidebar flex items-center gap-2 border brd-subtle rounded-lg p-1.5">
+            <span class="w-3.5 h-3.5 rounded-full bg-[#10b981] border-2 border-white inline-block shadow shrink-0"></span>
+            <div>
+              <div class="txt-primary font-semibold text-[11.5px]">Línea San Martín</div>
+              <div class="txt-muted text-[10px]">Retiro ↔ Junín</div>
+            </div>
+          </div>
+
+          <div class="app-sidebar flex items-center gap-2 border brd-subtle rounded-lg p-1.5">
+            <span class="w-3.5 h-3.5 rounded-full bg-[#9333ea] border-2 border-white inline-block shadow shrink-0"></span>
+            <div>
+              <div class="txt-primary font-semibold text-[11.5px]">Línea Sarmiento</div>
+              <div class="txt-muted text-[10px]">Once ↔ Bragado · Dif. Moreno</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Escenario Operativo, Día de Semana / Fin de Semana y Filtro de Línea -->
+      <section class="app-card border rounded-xl p-3 space-y-2.5">
+        <div>
+          <label for="scenario-select" class="txt-muted block text-[11px] font-semibold uppercase tracking-wider mb-1">
+            Escenario Operativo Semanal (Cartelera Vigente 2026)
+          </label>
+          <select
+            id="scenario-select"
+            class="app-control w-full py-1.5 px-2.5 rounded-lg text-xs font-medium border focus:outline-none focus:border-sky-500 cursor-pointer"
+          >
+            <option value="normal" selected>Semana Normal (68 corridas semanales)</option>
+            <option value="finde_largo">Fin de Semana Largo · Lunes Feriado (64 corridas)</option>
+          </select>
+        </div>
+
+        <!-- Selector de Jornada: Día de Semana + Fin de Semana arriba, y los 7 días individuales abajo -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <span class="txt-muted text-[11px] font-semibold uppercase tracking-wider">
+              Jornada Simulada
+            </span>
+            <span id="day-rule-badge" class="text-[10px] font-semibold text-emerald-600">
+              Consolidado Lunes a Viernes
+            </span>
+          </div>
+
+          <!-- Botones Consolidados: Día de Semana (Lun–Vie) y Fin de Semana (Sáb–Dom) -->
+          <div class="grid grid-cols-2 gap-1 mb-1" role="group" aria-label="Jornada consolidada">
+            <button
+              type="button"
+              data-day-mode="weekday"
+              class="day-btn active py-1.5 px-2 rounded-lg bg-sky-600 text-white border border-sky-400 text-[11px] font-semibold cursor-pointer"
+            >
+              Día de Semana (Lun–Vie)
+            </button>
+            <button
+              type="button"
+              data-day-mode="weekend"
+              class="day-btn app-control py-1.5 px-2 rounded-lg border text-[11px] font-semibold cursor-pointer"
+            >
+              Fin de Semana
+            </button>
+          </div>
+
+          <!-- Días individuales de la semana (incluyendo Sáb y Dom) -->
+          <div class="grid grid-cols-7 gap-1" role="group" aria-label="Días individuales de la semana">
+            <button type="button" data-day-mode="0" class="day-btn app-control py-1 px-1 rounded-lg border text-[10.5px] font-semibold cursor-pointer">Lun</button>
+            <button type="button" data-day-mode="1" class="day-btn app-control py-1 px-1 rounded-lg border text-[10.5px] font-semibold cursor-pointer">Mar</button>
+            <button type="button" data-day-mode="2" class="day-btn app-control py-1 px-1 rounded-lg border text-[10.5px] font-semibold cursor-pointer">Mié</button>
+            <button type="button" data-day-mode="3" class="day-btn app-control py-1 px-1 rounded-lg border text-[10.5px] font-semibold cursor-pointer">Jue</button>
+            <button type="button" data-day-mode="4" class="day-btn app-control py-1 px-1 rounded-lg border text-[10.5px] font-semibold cursor-pointer">Vie</button>
+            <button type="button" data-day-mode="5" class="day-btn app-control py-1 px-1 rounded-lg border text-[10.5px] font-semibold cursor-pointer">Sáb</button>
+            <button type="button" data-day-mode="6" class="day-btn app-control py-1 px-1 rounded-lg border text-[10.5px] font-semibold cursor-pointer">Dom</button>
+          </div>
+        </div>
+
+        <!-- Filtro por Línea Ferroviaria -->
+        <div class="grid grid-cols-5 gap-1 pt-1 border-t brd-subtle" role="group" aria-label="Filtro por línea ferroviaria">
+          <button
+            type="button"
+            data-line-filter="all"
+            class="line-filter-btn active py-1.5 px-1.5 rounded-lg bg-sky-600 text-white border border-sky-400 text-[10.5px] font-semibold cursor-pointer"
+          >
+            Todas
+          </button>
+          <button
+            type="button"
+            data-line-filter="Línea Mitre"
+            class="line-filter-btn app-control py-1.5 px-1.5 rounded-lg border text-[10.5px] font-semibold cursor-pointer"
+          >
+            Mitre
+          </button>
+          <button
+            type="button"
+            data-line-filter="Línea Roca"
+            class="line-filter-btn app-control py-1.5 px-1.5 rounded-lg border text-[10.5px] font-semibold cursor-pointer"
+          >
+            Roca
+          </button>
+          <button
+            type="button"
+            data-line-filter="Línea San Martín"
+            class="line-filter-btn app-control py-1.5 px-1.5 rounded-lg border text-[10.5px] font-semibold cursor-pointer"
+          >
+            S. Martín
+          </button>
+          <button
+            type="button"
+            data-line-filter="Línea Sarmiento"
+            class="line-filter-btn app-control py-1.5 px-1.5 rounded-lg border text-[10.5px] font-semibold cursor-pointer"
+          >
+            Sarmiento
+          </button>
+        </div>
+      </section>
+
+      <!-- Selector Rápido de Mapa Base (Argenmap IGN por defecto + Hybrid + Satélite) -->
+      <section class="app-card border rounded-xl p-3">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="txt-muted text-[11px] font-semibold uppercase tracking-wider">
+            Mapa Base
+          </span>
+          <span id="tile-status-badge" class="text-[10px] text-emerald-600 font-semibold">
+            Argenmap IGN activo
+          </span>
+        </div>
+        <div class="grid grid-cols-3 gap-1.5" role="group" aria-label="Selector de mapa base">
+          <button
+            id="btn-map-argenmap"
+            type="button"
+            data-basemap="argenmap"
+            class="basemap-btn active app-control py-1.5 px-2 rounded-lg border text-[11px] font-semibold cursor-pointer"
+          >
+            Argenmap IGN
+          </button>
+          <button
+            id="btn-map-google"
+            type="button"
+            data-basemap="google"
+            class="basemap-btn app-control py-1.5 px-2 rounded-lg border text-[11px] font-semibold cursor-pointer"
+          >
+            Google Hybrid
+          </button>
+          <button
+            id="btn-map-esri"
+            type="button"
+            data-basemap="esri"
+            class="basemap-btn app-control py-1.5 px-2 rounded-lg border text-[11px] font-semibold cursor-pointer"
+          >
+            Esri Satélite
+          </button>
+        </div>
+      </section>
+
+      <!-- Reloj Digital y Controles de Simulación -->
+      <section class="app-card border rounded-xl p-3 shadow-sm">
+        <div class="flex items-center justify-between">
+          <span class="txt-muted text-xs font-medium">Hora simulada</span>
+          <span id="active-count-badge" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+            0 en circulación
+          </span>
+        </div>
+
+        <div class="flex items-baseline justify-between mt-1">
+          <div id="clock-display" class="txt-primary text-3xl font-extrabold tracking-tight tabular-nums">
+            07:45
+          </div>
+          <span id="clock-day-label" class="txt-muted text-xs">Día de Semana (Lun–Vie)</span>
+        </div>
+
+        <!-- Deslizador de Tiempo -->
+        <input
+          id="time-slider"
+          type="range"
+          min="0"
+          max="1439"
+          value="465"
+          aria-label="Línea de tiempo de 24 horas"
+          class="w-full mt-2.5 accent-sky-600 cursor-pointer"
+        />
+        <div class="txt-muted flex justify-between text-[10px] mt-0.5 tabular-nums">
+          <span>00:00</span>
+          <span>06:00</span>
+          <span>12:00</span>
+          <span>18:00</span>
+          <span>23:59</span>
+        </div>
+
+        <!-- Botón Pausar/Reanudar, Multiplicador x10 y Selector de Velocidad -->
+        <div class="grid grid-cols-2 gap-1.5 mt-2.5">
+          <button
+            id="btn-toggle"
+            type="button"
+            class="py-1.5 px-3 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold transition cursor-pointer shadow-sm"
+          >
+            Pausar
+          </button>
+          <button
+            id="btn-boost-10x"
+            type="button"
+            title="Multiplicar la velocidad actual por 10"
+            class="app-control py-1.5 px-3 rounded-lg text-amber-600 dark:text-amber-300 border text-xs font-semibold transition cursor-pointer shadow-sm"
+          >
+            Más rápido x10
+          </button>
+          <select
+            id="speed-select"
+            aria-label="Velocidad de simulación"
+            class="app-control col-span-2 py-1.5 px-2.5 rounded-lg text-xs font-medium border focus:outline-none focus:border-sky-500 cursor-pointer"
+          >
+            <option value="1">Velocidad 1x (Tiempo real)</option>
+            <option value="10">Velocidad 10x</option>
+            <option value="60">Velocidad 60x (1 min/s)</option>
+            <option value="180" selected>Velocidad 180x (3 min/s)</option>
+            <option value="600">Velocidad 600x (10 min/s)</option>
+            <option value="1800">Velocidad 1800x (30 min/s · x10)</option>
+            <option value="3600">Velocidad 3600x (1 h/s · Máx x10)</option>
+          </select>
+        </div>
+      </section>
+
+      <!-- Lista de Formaciones Activas en Tiempo Simulado (Sensible al Zoom) -->
+      <section>
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <h2 class="txt-secondary text-xs font-semibold uppercase tracking-wider">
+            Formaciones en Circulación
+          </h2>
+          <span
+            id="zoom-scope-badge"
+            class="app-control text-[10px] font-medium px-2 py-0.5 rounded-full border shrink-0"
+          >
+            Todos los corredores · Zoom 7
+          </span>
+        </div>
+        <div id="active-trains" class="space-y-2"></div>
+      </section>
+
+      <!-- Tabla Comparativa de Velocidades Medias por Corredor -->
+      <section class="app-card border rounded-xl p-3">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="txt-secondary text-xs font-semibold uppercase tracking-wider">
+            Velocidades Medias Comerciales
+          </h2>
+          <span class="txt-muted text-[10px]">v = d / Δt</span>
+        </div>
+        <div id="speed-summary-container" class="overflow-x-auto"></div>
+      </section>
+
+    </div>
+  </aside>
+
+  <!-- Columna Derecha: Mapa Interactivo + Panel Inferior de Evolución 24 h / Tabla Horaria -->
+  <div class="flex-1 flex flex-col h-full w-full overflow-hidden">
+
+    <!-- Contenedor del Mapa Interactivo -->
+    <main class="relative flex-1 w-full min-h-[240px]">
+      <div id="map"></div>
+
+      <!-- Firma / Autoría en la parte inferior del visor -->
+      <div
+        id="watermark-badge"
+        aria-label="Autoría del visor"
+        class="pointer-events-none absolute bottom-3 right-3 z-[500] px-3 py-1 rounded-full bg-white/90 text-slate-800 border border-slate-300 text-xs font-semibold tracking-wide shadow-md backdrop-blur-sm"
+      >
+        @mbattaglia07
+      </div>
+    </main>
+
+    <!-- Panel Inferior Debajo del Mapa: Gráfico de Evolución de Trenes en Operación + Tabla Horaria -->
+    <section id="bottom-analytics-panel" class="app-sidebar border-t brd-main shrink-0 z-10 shadow-lg">
+      <!-- Barra Superior del Panel Inferior -->
+      <div class="px-3.5 py-2 border-b brd-subtle flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-1.5">
+          <button
+            type="button"
+            data-analytics-tab="chart"
+            class="analytics-tab-btn active app-control py-1 px-2.5 rounded-lg border text-[11px] font-semibold cursor-pointer"
+          >
+            Gráfico Evolución 24 h
+          </button>
+          <button
+            type="button"
+            data-analytics-tab="table"
+            class="analytics-tab-btn app-control py-1 px-2.5 rounded-lg border text-[11px] font-semibold cursor-pointer"
+          >
+            Tabla Horaria por Línea
+          </button>
+        </div>
+
+        <!-- Contadores por Línea (con sus colores exactos) -->
+        <div id="live-line-pills" class="flex flex-wrap items-center gap-1.5 text-[10.5px] font-semibold tabular-nums">
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#2563eb]/15 text-[#2563eb] border border-[#2563eb]/30">
+            <span class="w-2 h-2 rounded-full bg-[#2563eb]"></span>
+            Mitre: <strong id="pill-count-mitre">0</strong>
+          </span>
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#ea580c]/15 text-[#ea580c] border border-[#ea580c]/30">
+            <span class="w-2 h-2 rounded-full bg-[#ea580c]"></span>
+            Roca: <strong id="pill-count-roca">0</strong>
+          </span>
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#10b981]/15 text-[#10b981] border border-[#10b981]/30">
+            <span class="w-2 h-2 rounded-full bg-[#10b981]"></span>
+            S. Martín: <strong id="pill-count-sanmartin">0</strong>
+          </span>
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#9333ea]/15 text-[#9333ea] border border-[#9333ea]/30">
+            <span class="w-2 h-2 rounded-full bg-[#9333ea]"></span>
+            Sarmiento: <strong id="pill-count-sarmiento">0</strong>
+          </span>
+          <span class="app-control inline-flex items-center gap-1 px-2 py-0.5 rounded-md border">
+            Total: <strong id="pill-count-total">0</strong>
+          </span>
+        </div>
+
+        <!-- Controles del Gráfico y Plegado -->
+        <div class="flex items-center gap-1.5">
+          <div id="chart-style-group" class="flex items-center gap-1">
+            <button
+              type="button"
+              data-chart-mode="lines"
+              class="chart-mode-btn active app-control py-1 px-2 rounded-md border text-[10.5px] font-semibold cursor-pointer"
+            >
+              Líneas
+            </button>
+            <button
+              type="button"
+              data-chart-mode="bars"
+              class="chart-mode-btn app-control py-1 px-2 rounded-md border text-[10.5px] font-semibold cursor-pointer"
+            >
+              Barras
+            </button>
+          </div>
+          <button
+            id="btn-toggle-analytics"
+            type="button"
+            class="app-control py-1 px-2 rounded-md border text-[10.5px] font-semibold cursor-pointer"
+          >
+            Ocultar panel
+          </button>
+        </div>
+      </div>
+
+      <!-- Cuerpo del Panel Inferior -->
+      <div id="bottom-analytics-body" class="p-3">
+        <!-- Vista 1: Gráfico Canvas 24 h -->
+        <div id="analytics-view-chart" class="relative w-full h-[185px]">
+          <canvas id="evolution-chart" class="w-full h-full block cursor-crosshair"></canvas>
+          <div
+            id="chart-hover-tooltip"
+            class="hidden pointer-events-none absolute z-20 rounded-lg px-2.5 py-1.5 text-[11px] shadow-lg border"
+            style="background-color: var(--tooltip-bg); color: var(--tooltip-text); border-color: var(--tooltip-border);"
+          ></div>
+        </div>
+
+        <!-- Vista 2: Tabla Horaria por Línea -->
+        <div id="analytics-view-table" class="hidden max-h-[185px] overflow-y-auto"></div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Leaflet JS -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+
+  <script>
+    /**
+     * =========================================================================
+     * 1. CONFIGURACIÓN DE MAPAS BASE (ARGENMAP IGN POR DEFECTO + HYBRID + SATÉLITE)
+     * =========================================================================
+     */
+    const argenmapLayer = L.tileLayer(
+      'https://wms.ign.gob.ar/geoserver/gwc/service/tms/1.0.0/capabaseargenmap@EPSG%3A3857@png/{z}/{x}/{-y}.png',
+      {
+        attribution: 'Instituto Geográfico Nacional (IGN) - Argenmap',
+        minZoom: 3,
+        maxZoom: 18
+      }
+    );
+
+    const googleHybridLayer = L.tileLayer(
+      'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+      {
+        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+        attribution: 'Map data &copy; Google',
+        maxZoom: 20
+      }
+    );
+
+    const esriSatelliteLayer = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      {
+        attribution: 'Tiles &copy; Esri &mdash; World Imagery',
+        maxZoom: 18
+      }
+    );
+
+    const INITIAL_ZOOM = 7;
+    const INTERMEDIATE_LABELS_MIN_ZOOM = 8; // Localidades no cabeceras visibles sólo al activar zoom (>= 8)
+    const ZOOM_FILTER_THRESHOLD = 9;        // Filtro de tarjetas cercanas al visor (>= 9)
+
+    const map = L.map('map', {
+      zoomControl: true,
+      attributionControl: false,
+      layers: [argenmapLayer]
+    }).setView([-35.35, -58.85], INITIAL_ZOOM);
+
+    const BASE_LAYERS_BY_KEY = {
+      argenmap: { label: 'Argenmap (IGN)', shortLabel: 'Argenmap IGN', layer: argenmapLayer },
+      google: { label: 'Google Hybrid', shortLabel: 'Google Hybrid', layer: googleHybridLayer },
+      esri: { label: 'Esri Satélite', shortLabel: 'Esri Satélite', layer: esriSatelliteLayer }
+    };
+
+    L.control.layers(
+      {
+        'Argenmap (IGN)': argenmapLayer,
+        'Google Hybrid': googleHybridLayer,
+        'Esri Satélite': esriSatelliteLayer
+      },
+      null,
+      { position: 'topright' }
+    ).addTo(map);
+
+    let activeBaseKey = 'argenmap';
+    let tileErrorCount = 0;
+
+    function updateBaseMapButtonsUI(key, statusText, isWarning) {
+      document.querySelectorAll('.basemap-btn').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.basemap === key);
+      });
+      const badge = document.getElementById('tile-status-badge');
+      if (badge) {
+        badge.textContent = statusText;
+        badge.className = isWarning
+          ? 'text-[10px] text-amber-600 font-semibold'
+          : 'text-[10px] text-emerald-600 font-semibold';
+      }
+    }
+
+    function setActiveBaseMap(key) {
+      if (!BASE_LAYERS_BY_KEY[key]) return;
+      Object.entries(BASE_LAYERS_BY_KEY).forEach(([k, entry]) => {
+        if (k === key) {
+          if (!map.hasLayer(entry.layer)) map.addLayer(entry.layer);
+        } else if (map.hasLayer(entry.layer)) {
+          map.removeLayer(entry.layer);
+        }
+      });
+      activeBaseKey = key;
+      tileErrorCount = 0;
+      updateBaseMapButtonsUI(key, `${BASE_LAYERS_BY_KEY[key].shortLabel} activo`, false);
+    }
+
+    map.on('baselayerchange', (e) => {
+      const matched = Object.entries(BASE_LAYERS_BY_KEY).find(([, entry]) => entry.label === e.name);
+      if (matched) {
+        activeBaseKey = matched[0];
+        tileErrorCount = 0;
+        updateBaseMapButtonsUI(matched[0], `${matched[1].shortLabel} activo`, false);
+      }
+    });
+
+    Object.entries(BASE_LAYERS_BY_KEY).forEach(([key, entry]) => {
+      entry.layer.on('tileerror', () => {
+        if (activeBaseKey !== key) return;
+        tileErrorCount += 1;
+        updateBaseMapButtonsUI(key, `Demora en ${entry.shortLabel} (${tileErrorCount})`, true);
+        if (tileErrorCount >= 6) {
+          const fallbackKey = key === 'esri' ? 'argenmap' : 'esri';
+          setActiveBaseMap(fallbackKey);
+          updateBaseMapButtonsUI(fallbackKey, `Respaldo ${BASE_LAYERS_BY_KEY[fallbackKey].shortLabel} activo`, false);
+        }
+      });
+    });
+
+    /**
+     * =========================================================================
+     * 2. ALTERNANCIA DE TEMA VISUAL (FONDO CLARO VS. FONDO OSCURO, SIN EMOJI)
+     * =========================================================================
+     */
+    let isDarkTheme = false;
+
+    function applyTheme(dark) {
+      isDarkTheme = dark;
+      document.body.classList.toggle('theme-dark', dark);
+
+      const labelEl = document.getElementById('theme-label');
+      const watermarkEl = document.getElementById('watermark-badge');
+
+      if (dark) {
+        labelEl.textContent = 'Fondo Claro';
+        if (watermarkEl) {
+          watermarkEl.className =
+            'pointer-events-none absolute bottom-3 right-3 z-[500] px-3 py-1 rounded-full bg-slate-950/85 text-slate-200 border border-slate-700/80 text-xs font-semibold tracking-wide shadow-lg backdrop-blur-sm';
+        }
+      } else {
+        labelEl.textContent = 'Fondo Oscuro';
+        if (watermarkEl) {
+          watermarkEl.className =
+            'pointer-events-none absolute bottom-3 right-3 z-[500] px-3 py-1 rounded-full bg-white/90 text-slate-800 border border-slate-300 text-xs font-semibold tracking-wide shadow-md backdrop-blur-sm';
+        }
+      }
+      renderSimulationFrame();
+    }
+
+    /**
+     * =========================================================================
+     * 3. GEOLOCALIZACIÓN DE LAS 54 ESTACIONES Y TRAZAS FERROVIARIAS REALES
+     * =========================================================================
+     */
+    const LINE_COLORS = {
+      "Línea Mitre": "#2563eb",
+      "Línea Roca": "#ea580c",
+      "Línea San Martín": "#10b981",
+      "Línea Sarmiento": "#9333ea"
+    };
+
+    const STATIONS = {
+      // --- Línea Mitre (Retiro – Rosario Norte) ---
+      "Retiro (Línea Mitre)": { coords: [-34.5914, -58.3746], linea: "Línea Mitre", terminal: true },
+      "Campana": { coords: [-34.1601, -58.9589], linea: "Línea Mitre" },
+      "Zárate": { coords: [-34.0981, -59.0286], linea: "Línea Mitre" },
+      "Lima": { coords: [-34.0439, -59.1983], linea: "Línea Mitre" },
+      "Baradero": { coords: [-33.8122, -59.5064], linea: "Línea Mitre" },
+      "San Pedro": { coords: [-33.6794, -59.6669], linea: "Línea Mitre" },
+      "Gdor. Castro": { coords: [-33.5831, -59.8658], linea: "Línea Mitre" },
+      "Ramallo": { coords: [-33.4856, -60.0061], linea: "Línea Mitre" },
+      "San Nicolás": { coords: [-33.3358, -60.2253], linea: "Línea Mitre" },
+      "Emp. Villa Constitución": { coords: [-33.2425, -60.3414], linea: "Línea Mitre" },
+      "Arroyo Seco": { coords: [-33.1553, -60.5086], linea: "Línea Mitre" },
+      "Rosario Sur": { coords: [-32.9992, -60.6358], linea: "Línea Mitre" },
+      "Rosario Norte": { coords: [-32.9331, -60.6542], linea: "Línea Mitre", terminal: true },
+
+      // --- Línea Roca (Pza. Constitución – Mar del Plata) ---
+      "Pza. Constitución": { coords: [-34.6278, -58.3806], linea: "Línea Roca", terminal: true },
+      "Cnel. Brandsen": { coords: [-35.1669, -58.2344], linea: "Línea Roca" },
+      "Chascomús": { coords: [-35.5750, -58.0125], linea: "Línea Roca" },
+      "Lezama": { coords: [-35.8764, -57.8936], linea: "Línea Roca" },
+      "Castelli": { coords: [-36.0911, -57.8047], linea: "Línea Roca" },
+      "Sevigné": { coords: [-36.2244, -57.7492], linea: "Línea Roca" },
+      "Dolores": { coords: [-36.3136, -57.6792], linea: "Línea Roca" },
+      "Gral. Guido": { coords: [-36.6431, -57.7931], linea: "Línea Roca" },
+      "Maipú": { coords: [-36.8639, -57.8789], linea: "Línea Roca" },
+      "Las Armas": { coords: [-37.0928, -57.8350], linea: "Línea Roca" },
+      "Gral. Pirán": { coords: [-37.2747, -57.7714], linea: "Línea Roca" },
+      "Cnel. Vidal": { coords: [-37.4481, -57.7286], linea: "Línea Roca" },
+      "Vivoratá": { coords: [-37.6694, -57.6656], linea: "Línea Roca" },
+      "Mar del Plata": { coords: [-37.9897, -57.5619], linea: "Línea Roca", terminal: true },
+
+      // --- Línea San Martín (Retiro – Junín) ---
+      "Retiro (Línea San Martín)": { coords: [-34.5906, -58.3761], linea: "Línea San Martín", terminal: true },
+      "Sáenz Peña": { coords: [-34.6022, -58.5269], linea: "Línea San Martín" },
+      "José C. Paz": { coords: [-34.5153, -58.7653], linea: "Línea San Martín" },
+      "Pilar": { coords: [-34.4586, -58.9142], linea: "Línea San Martín" },
+      "Manzanares": { coords: [-34.4536, -59.0128], linea: "Línea San Martín" },
+      "Dr. Cabred": { coords: [-34.4925, -59.0919], linea: "Línea San Martín" },
+      "Cortines": { coords: [-34.5586, -59.2194], linea: "Línea San Martín" },
+      "Mercedes P (San Martín)": { coords: [-34.6514, -59.4308], linea: "Línea San Martín" },
+      "Franklin": { coords: [-34.6331, -59.6828], linea: "Línea San Martín" },
+      "Rivas": { coords: [-34.6228, -59.8456], linea: "Línea San Martín" },
+      "Castilla": { coords: [-34.6144, -60.0156], linea: "Línea San Martín" },
+      "Rawson": { coords: [-34.6139, -60.1517], linea: "Línea San Martín" },
+      "Cucha Cucha": { coords: [-34.6222, -60.3883], linea: "Línea San Martín" },
+      "Chacabuco": { coords: [-34.6417, -60.4717], linea: "Línea San Martín" },
+      "O'Higgins": { coords: [-34.5778, -60.7283], linea: "Línea San Martín" },
+      "Junín": { coords: [-34.5839, -60.9433], linea: "Línea San Martín", terminal: true },
+
+      // --- Línea Sarmiento (Once – Bragado) ---
+      "Once": { coords: [-34.6094, -58.4067], linea: "Línea Sarmiento", terminal: true },
+      "Haedo": { coords: [-34.6458, -58.5914], linea: "Línea Sarmiento" },
+      "Merlo": { coords: [-34.6656, -58.7278], linea: "Línea Sarmiento" },
+      "Moreno": { coords: [-34.6336, -58.7917], linea: "Línea Sarmiento" },
+      "Luján": { coords: [-34.5644, -59.1156], linea: "Línea Sarmiento" },
+      "Mercedes": { coords: [-34.6531, -59.4331], linea: "Línea Sarmiento" },
+      "Suipacha": { coords: [-34.7703, -59.6872], linea: "Línea Sarmiento" },
+      "Chivilcoy Sud": { coords: [-34.8958, -60.0167], linea: "Línea Sarmiento" },
+      "A. Vaccarezza": { coords: [-35.0219, -60.2781], linea: "Línea Sarmiento" },
+      "Mechita": { coords: [-35.0706, -60.4094], linea: "Línea Sarmiento" },
+      "Bragado": { coords: [-35.1189, -60.4883], linea: "Línea Sarmiento", terminal: true }
+    };
+
+    const SEGMENT_WAYPOINTS = {
+      "Retiro (Línea Mitre)|Campana": [
+        [-34.5685, -58.4450],
+        [-34.5582, -58.4875],
+        [-34.5305, -58.5550],
+        [-34.4820, -58.6250],
+        [-34.3480, -58.7920],
+        [-34.2450, -58.8980]
+      ],
+      "Pza. Constitución|Cnel. Brandsen": [
+        [-34.6615, -58.3745],
+        [-34.7605, -58.3980],
+        [-34.8560, -58.3890],
+        [-34.9830, -58.3780]
+      ],
+      "Retiro (Línea San Martín)|Sáenz Peña": [
+        [-34.5785, -58.4255],
+        [-34.6050, -58.4910]
+      ],
+      "Sáenz Peña|José C. Paz": [
+        [-34.6005, -58.5630],
+        [-34.5760, -58.6340],
+        [-34.5440, -58.7120]
+      ],
+      "Retiro (Línea San Martín)|José C. Paz": [
+        [-34.5785, -58.4255],
+        [-34.6022, -58.5269],
+        [-34.6005, -58.5630],
+        [-34.5760, -58.6340],
+        [-34.5440, -58.7120]
+      ],
+      "Once|Haedo": [
+        [-34.6190, -58.4430],
+        [-34.6390, -58.5260]
+      ],
+      "Moreno|Luján": [
+        [-34.6065, -58.9510]
+      ],
+      "Haedo|Luján": [
+        [-34.6656, -58.7278],
+        [-34.6336, -58.7917],
+        [-34.6065, -58.9510]
+      ]
+    };
+
+    function getSubPolyline(stA, stB) {
+      const pA = STATIONS[stA].coords;
+      const pB = STATIONS[stB].coords;
+      const forwardKey = `${stA}|${stB}`;
+      const reverseKey = `${stB}|${stA}`;
+      if (SEGMENT_WAYPOINTS[forwardKey]) {
+        return [pA, ...SEGMENT_WAYPOINTS[forwardKey], pB];
+      }
+      if (SEGMENT_WAYPOINTS[reverseKey]) {
+        return [pA, ...[...SEGMENT_WAYPOINTS[reverseKey]].reverse(), pB];
+      }
+      return [pA, pB];
+    }
+
+    function haversineKm(p1, p2) {
+      const R = 6371.0088;
+      const toRad = (deg) => (deg * Math.PI) / 180;
+      const dLat = toRad(p2[0] - p1[0]);
+      const dLon = toRad(p2[1] - p1[1]);
+      const lat1 = toRad(p1[0]);
+      const lat2 = toRad(p2[0]);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function polylineDistanceKm(coords) {
+      let total = 0;
+      for (let i = 0; i < coords.length - 1; i++) {
+        total += haversineKm(coords[i], coords[i + 1]);
+      }
+      return total;
+    }
+
+    function buildCorridorPolyline(stationList) {
+      const full = [];
+      for (let i = 0; i < stationList.length - 1; i++) {
+        const seg = getSubPolyline(stationList[i], stationList[i + 1]);
+        if (i === 0) full.push(...seg);
+        else full.push(...seg.slice(1));
+      }
+      return full;
+    }
+
+    const CORRIDOR_POLYLINES = {
+      "Línea Mitre": buildCorridorPolyline([
+        "Retiro (Línea Mitre)", "Campana", "Zárate", "Lima", "Baradero",
+        "San Pedro", "Gdor. Castro", "Ramallo", "San Nicolás",
+        "Emp. Villa Constitución", "Arroyo Seco", "Rosario Sur", "Rosario Norte"
+      ]),
+      "Línea Roca": buildCorridorPolyline([
+        "Pza. Constitución", "Cnel. Brandsen", "Chascomús", "Lezama",
+        "Castelli", "Sevigné", "Dolores", "Gral. Guido", "Maipú",
+        "Las Armas", "Gral. Pirán", "Cnel. Vidal", "Vivoratá", "Mar del Plata"
+      ]),
+      "Línea San Martín": buildCorridorPolyline([
+        "Retiro (Línea San Martín)", "Sáenz Peña", "José C. Paz", "Pilar",
+        "Manzanares", "Dr. Cabred", "Cortines", "Mercedes P (San Martín)",
+        "Franklin", "Rivas", "Castilla", "Rawson", "Cucha Cucha",
+        "Chacabuco", "O'Higgins", "Junín"
+      ]),
+      "Línea Sarmiento": buildCorridorPolyline([
+        "Once", "Haedo", "Merlo", "Moreno", "Luján", "Mercedes",
+        "Suipacha", "Chivilcoy Sud", "A. Vaccarezza", "Mechita", "Bragado"
+      ])
+    };
+
+    const CORRIDOR_DISTANCES_KM = {
+      "Línea Mitre": polylineDistanceKm(CORRIDOR_POLYLINES["Línea Mitre"]),
+      "Línea Roca": polylineDistanceKm(CORRIDOR_POLYLINES["Línea Roca"]),
+      "Línea San Martín": polylineDistanceKm(CORRIDOR_POLYLINES["Línea San Martín"]),
+      "Línea Sarmiento": polylineDistanceKm(CORRIDOR_POLYLINES["Línea Sarmiento"])
+    };
+
+    /**
+     * =========================================================================
+     * 4. BASE CONSOLIDADA DE 25 SERVICIOS (HORARIOS OFICIALES DE CARTELERA)
+     * =========================================================================
+     */
+    const RAIL_SERVICES = [
+      {"id":"SVC-01","linea":"Línea Mitre","corredor":"Retiro – Rosario Norte","sentido":"Ida (a Rosario)","tren":"277","clase":"Estándar","regla":"DIARIO","origen":"Retiro (Línea Mitre)","destino":"Rosario Norte","salida":"19:55","llegada":"03:29","duracionMin":454,"stops":[[1,"Retiro (Línea Mitre)",1,"Cabecera Origen","19:55",0,0,0],[2,"Campana",1,"Parada Intermedia","21:48",0,113,113],[3,"Zárate",1,"Parada Intermedia","22:06",0,18,131],[4,"Lima",1,"Parada Intermedia","22:29",0,23,154],[5,"Baradero",1,"Parada Intermedia","23:18",0,49,203],[6,"San Pedro",1,"Parada Intermedia","00:11",1,53,256],[7,"Gdor. Castro",1,"Parada Intermedia","00:33",1,22,278],[8,"Ramallo",1,"Parada Intermedia","01:01",1,28,306],[9,"San Nicolás",1,"Parada Intermedia","01:29",1,28,334],[10,"Emp. Villa Constitución",1,"Parada Intermedia","01:56",1,27,361],[11,"Arroyo Seco",1,"Parada Intermedia","02:16",1,20,381],[12,"Rosario Sur",1,"Parada Intermedia","02:45",1,29,410],[13,"Rosario Norte",1,"Cabecera Destino","03:29",1,44,454]]},
+      {"id":"SVC-02","linea":"Línea Mitre","corredor":"Retiro – Rosario Norte","sentido":"Vuelta (a Retiro)","tren":"278","clase":"Estándar","regla":"DIARIO","origen":"Rosario Norte","destino":"Retiro (Línea Mitre)","salida":"04:48","llegada":"12:22","duracionMin":454,"stops":[[1,"Rosario Norte",1,"Cabecera Origen","04:48",0,0,0],[2,"Rosario Sur",1,"Parada Intermedia","05:35",0,47,47],[3,"Arroyo Seco",1,"Parada Intermedia","06:03",0,28,75],[4,"Emp. Villa Constitución",1,"Parada Intermedia","06:22",0,19,94],[5,"San Nicolás",1,"Parada Intermedia","06:49",0,27,121],[6,"Ramallo",1,"Parada Intermedia","07:19",0,30,151],[7,"Gdor. Castro",1,"Parada Intermedia","07:46",0,27,178],[8,"San Pedro",1,"Parada Intermedia","08:09",0,23,201],[9,"Baradero",1,"Parada Intermedia","09:05",0,56,257],[10,"Lima",1,"Parada Intermedia","09:51",0,46,303],[11,"Zárate",1,"Parada Intermedia","10:14",0,23,326],[12,"Campana",1,"Parada Intermedia","10:27",0,13,339],[13,"Retiro (Línea Mitre)",1,"Cabecera Destino","12:22",0,115,454]]},
+      {"id":"SVC-03","linea":"Línea Roca","corredor":"Pza. Constitución – Mar del Plata","sentido":"Ida (a Mar del Plata)","tren":"301","clase":"Estándar","regla":"HABIL_LV","origen":"Pza. Constitución","destino":"Mar del Plata","salida":"07:30","llegada":"13:32","duracionMin":362,"stops":[[1,"Pza. Constitución",1,"Cabecera Origen","07:30",0,0,0],[2,"Cnel. Brandsen",1,"Parada Intermedia","08:42",0,72,72],[3,"Chascomús",1,"Parada Intermedia","09:33",0,51,123],[4,"Lezama",1,"Parada Intermedia","10:00",0,27,150],[5,"Castelli",1,"Parada Intermedia","10:19",0,19,169],[6,"Sevigné",1,"Parada Intermedia","10:33",0,14,183],[7,"Dolores",1,"Parada Intermedia","10:47",0,14,197],[8,"Gral. Guido",1,"Parada Intermedia","11:21",0,34,231],[9,"Maipú",1,"Parada Intermedia","11:39",0,18,249],[10,"Las Armas",1,"Parada Intermedia","11:59",0,20,269],[11,"Gral. Pirán",1,"Parada Intermedia","12:17",0,18,287],[12,"Cnel. Vidal",1,"Parada Intermedia","12:37",0,20,307],[13,"Vivoratá",1,"Parada Intermedia","12:56",0,19,326],[14,"Mar del Plata",1,"Cabecera Destino","13:32",0,36,362]]},
+      {"id":"SVC-04","linea":"Línea Roca","corredor":"Pza. Constitución – Mar del Plata","sentido":"Ida (a Mar del Plata)","tren":"303","clase":"Estándar","regla":"HABIL_LV_OBRAS","origen":"Pza. Constitución","destino":"Mar del Plata","salida":"14:17","llegada":"20:17","duracionMin":360,"stops":[[1,"Pza. Constitución",1,"Cabecera Origen","14:17",0,0,0],[2,"Cnel. Brandsen",1,"Parada Intermedia","15:29",0,72,72],[3,"Chascomús",1,"Parada Intermedia","16:20",0,51,123],[4,"Lezama",0,"Sin parada","----",null,null,null],[5,"Castelli",1,"Parada Intermedia","17:04",0,44,167],[6,"Sevigné",0,"Sin parada","----",null,null,null],[7,"Dolores",1,"Parada Intermedia","17:40",0,36,203],[8,"Gral. Guido",0,"Sin parada","----",null,null,null],[9,"Maipú",1,"Parada Intermedia","18:32",0,52,255],[10,"Las Armas",0,"Sin parada","----",null,null,null],[11,"Gral. Pirán",0,"Sin parada","----",null,null,null],[12,"Cnel. Vidal",1,"Parada Intermedia","19:25",0,53,308],[13,"Vivoratá",0,"Sin parada","----",null,null,null],[14,"Mar del Plata",1,"Cabecera Destino","20:17",0,52,360]]},
+      {"id":"SVC-05","linea":"Línea Roca","corredor":"Pza. Constitución – Mar del Plata","sentido":"Ida (a Mar del Plata)","tren":"305","clase":"Estándar","regla":"VISPERA_FER","origen":"Pza. Constitución","destino":"Mar del Plata","salida":"17:08","llegada":"22:58","duracionMin":350,"stops":[[1,"Pza. Constitución",1,"Cabecera Origen","17:08",0,0,0],[2,"Cnel. Brandsen",1,"Parada Intermedia","18:20",0,72,72],[3,"Chascomús",1,"Parada Intermedia","19:11",0,51,123],[4,"Lezama",0,"Sin parada","----",null,null,null],[5,"Castelli",1,"Parada Intermedia","19:55",0,44,167],[6,"Sevigné",0,"Sin parada","----",null,null,null],[7,"Dolores",1,"Parada Intermedia","20:21",0,26,193],[8,"Gral. Guido",0,"Sin parada","----",null,null,null],[9,"Maipú",1,"Parada Intermedia","21:13",0,52,245],[10,"Las Armas",0,"Sin parada","----",null,null,null],[11,"Gral. Pirán",0,"Sin parada","----",null,null,null],[12,"Cnel. Vidal",1,"Parada Intermedia","22:06",0,53,298],[13,"Vivoratá",0,"Sin parada","----",null,null,null],[14,"Mar del Plata",1,"Cabecera Destino","22:58",0,52,350]]},
+      {"id":"SVC-06","linea":"Línea Roca","corredor":"Pza. Constitución – Mar del Plata","sentido":"Ida (a Mar del Plata)","tren":"301","clase":"Estándar","regla":"SABADO","origen":"Pza. Constitución","destino":"Mar del Plata","salida":"07:32","llegada":"13:34","duracionMin":362,"stops":[[1,"Pza. Constitución",1,"Cabecera Origen","07:32",0,0,0],[2,"Cnel. Brandsen",1,"Parada Intermedia","08:44",0,72,72],[3,"Chascomús",1,"Parada Intermedia","09:35",0,51,123],[4,"Lezama",1,"Parada Intermedia","10:02",0,27,150],[5,"Castelli",1,"Parada Intermedia","10:21",0,19,169],[6,"Sevigné",1,"Parada Intermedia","10:35",0,14,183],[7,"Dolores",1,"Parada Intermedia","10:49",0,14,197],[8,"Gral. Guido",1,"Parada Intermedia","11:23",0,34,231],[9,"Maipú",1,"Parada Intermedia","11:41",0,18,249],[10,"Las Armas",1,"Parada Intermedia","12:01",0,20,269],[11,"Gral. Pirán",1,"Parada Intermedia","12:19",0,18,287],[12,"Cnel. Vidal",1,"Parada Intermedia","12:39",0,20,307],[13,"Vivoratá",1,"Parada Intermedia","12:58",0,19,326],[14,"Mar del Plata",1,"Cabecera Destino","13:34",0,36,362]]},
+      {"id":"SVC-07","linea":"Línea Roca","corredor":"Pza. Constitución – Mar del Plata","sentido":"Ida (a Mar del Plata)","tren":"303","clase":"Estándar","regla":"SABADO","origen":"Pza. Constitución","destino":"Mar del Plata","salida":"14:32","llegada":"20:32","duracionMin":360,"stops":[[1,"Pza. Constitución",1,"Cabecera Origen","14:32",0,0,0],[2,"Cnel. Brandsen",1,"Parada Intermedia","15:44",0,72,72],[3,"Chascomús",1,"Parada Intermedia","16:35",0,51,123],[4,"Lezama",0,"Sin parada","----",null,null,null],[5,"Castelli",1,"Parada Intermedia","17:19",0,44,167],[6,"Sevigné",0,"Sin parada","----",null,null,null],[7,"Dolores",1,"Parada Intermedia","17:55",0,36,203],[8,"Gral. Guido",0,"Sin parada","----",null,null,null],[9,"Maipú",1,"Parada Intermedia","18:47",0,52,255],[10,"Las Armas",0,"Sin parada","----",null,null,null],[11,"Gral. Pirán",0,"Sin parada","----",null,null,null],[12,"Cnel. Vidal",1,"Parada Intermedia","19:40",0,53,308],[13,"Vivoratá",0,"Sin parada","----",null,null,null],[14,"Mar del Plata",1,"Cabecera Destino","20:32",0,52,360]]},
+      {"id":"SVC-08","linea":"Línea Roca","corredor":"Pza. Constitución – Mar del Plata","sentido":"Ida (a Mar del Plata)","tren":"301","clase":"Estándar","regla":"DOM_FER","origen":"Pza. Constitución","destino":"Mar del Plata","salida":"07:25","llegada":"13:27","duracionMin":362,"stops":[[1,"Pza. Constitución",1,"Cabecera Origen","07:25",0,0,0],[2,"Cnel. Brandsen",1,"Parada Intermedia","08:37",0,72,72],[3,"Chascomús",1,"Parada Intermedia","09:28",0,51,123],[4,"Lezama",1,"Parada Intermedia","09:55",0,27,150],[5,"Castelli",1,"Parada Intermedia","10:14",0,19,169],[6,"Sevigné",1,"Parada Intermedia","10:28",0,14,183],[7,"Dolores",1,"Parada Intermedia","10:42",0,14,197],[8,"Gral. Guido",1,"Parada Intermedia","11:16",0,34,231],[9,"Maipú",1,"Parada Intermedia","11:34",0,18,249],[10,"Las Armas",1,"Parada Intermedia","11:54",0,20,269],[11,"Gral. Pirán",1,"Parada Intermedia","12:12",0,18,287],[12,"Cnel. Vidal",1,"Parada Intermedia","12:32",0,20,307],[13,"Vivoratá",1,"Parada Intermedia","12:51",0,19,326],[14,"Mar del Plata",1,"Cabecera Destino","13:27",0,36,362]]},
+      {"id":"SVC-09","linea":"Línea Roca","corredor":"Pza. Constitución – Mar del Plata","sentido":"Ida (a Mar del Plata)","tren":"303","clase":"Estándar","regla":"DOM_FER","origen":"Pza. Constitución","destino":"Mar del Plata","salida":"14:52","llegada":"20:52","duracionMin":360,"stops":[[1,"Pza. Constitución",1,"Cabecera Origen","14:52",0,0,0],[2,"Cnel. Brandsen",1,"Parada Intermedia","16:04",0,72,72],[3,"Chascomús",1,"Parada Intermedia","16:55",0,51,123],[4,"Lezama",0,"Sin parada","----",null,null,null],[5,"Castelli",1,"Parada Intermedia","17:39",0,44,167],[6,"Sevigné",0,"Sin parada","----",null,null,null],[7,"Dolores",1,"Parada Intermedia","18:15",0,36,203],[8,"Gral. Guido",0,"Sin parada","----",null,null,null],[9,"Maipú",1,"Parada Intermedia","19:07",0,52,255],[10,"Las Armas",0,"Sin parada","----",null,null,null],[11,"Gral. Pirán",0,"Sin parada","----",null,null,null],[12,"Cnel. Vidal",1,"Parada Intermedia","20:00",0,53,308],[13,"Vivoratá",0,"Sin parada","----",null,null,null],[14,"Mar del Plata",1,"Cabecera Destino","20:52",0,52,360]]},
+      {"id":"SVC-10","linea":"Línea Roca","corredor":"Pza. Constitución – Mar del Plata","sentido":"Vuelta (a Pza. Constitución)","tren":"302","clase":"Estándar","regla":"HABIL_LV_OBRAS","origen":"Mar del Plata","destino":"Pza. Constitución","salida":"01:11","llegada":"07:24","duracionMin":373,"stops":[[1,"Mar del Plata",1,"Cabecera Origen","01:11",0,0,0],[2,"Vivoratá",0,"Sin parada","----",null,null,null],[3,"Cnel. Vidal",1,"Parada Intermedia","02:05",0,54,54],[4,"Gral. Pirán",0,"Sin parada","----",null,null,null],[5,"Las Armas",0,"Sin parada","----",null,null,null],[6,"Maipú",1,"Parada Intermedia","02:58",0,53,107],[7,"Gral. Guido",0,"Sin parada","----",null,null,null],[8,"Dolores",1,"Parada Intermedia","03:48",0,50,157],[9,"Sevigné",0,"Sin parada","----",null,null,null],[10,"Castelli",1,"Parada Intermedia","04:13",0,25,182],[11,"Lezama",0,"Sin parada","----",null,null,null],[12,"Chascomús",1,"Parada Intermedia","04:55",0,42,224],[13,"Cnel. Brandsen",1,"Parada Intermedia","06:09",0,74,298],[14,"Pza. Constitución",1,"Cabecera Destino","07:24",0,75,373]]},
+      {"id":"SVC-11","linea":"Línea Roca","corredor":"Pza. Constitución – Mar del Plata","sentido":"Vuelta (a Pza. Constitución)","tren":"304","clase":"Estándar","regla":"HABIL_LV","origen":"Mar del Plata","destino":"Pza. Constitución","salida":"14:21","llegada":"20:50","duracionMin":389,"stops":[[1,"Mar del Plata",1,"Cabecera Origen","14:21",0,0,0],[2,"Vivoratá",1,"Parada Intermedia","14:57",0,36,36],[3,"Cnel. Vidal",1,"Parada Intermedia","15:16",0,19,55],[4,"Gral. Pirán",1,"Parada Intermedia","15:35",0,19,74],[5,"Las Armas",1,"Parada Intermedia","15:53",0,18,92],[6,"Maipú",1,"Parada Intermedia","16:13",0,20,112],[7,"Gral. Guido",1,"Parada Intermedia","16:31",0,18,130],[8,"Dolores",1,"Parada Intermedia","17:06",0,35,165],[9,"Sevigné",1,"Parada Intermedia","17:20",0,14,179],[10,"Castelli",1,"Parada Intermedia","17:34",0,14,193],[11,"Lezama",1,"Parada Intermedia","17:54",0,20,213],[12,"Chascomús",1,"Parada Intermedia","18:20",0,26,239],[13,"Cnel. Brandsen",1,"Parada Intermedia","19:35",0,75,314],[14,"Pza. Constitución",1,"Cabecera Destino","20:50",0,75,389]]},
+      {"id":"SVC-12","linea":"Línea Roca","corredor":"Pza. Constitución – Mar del Plata","sentido":"Vuelta (a Pza. Constitución)","tren":"302","clase":"Estándar","regla":"SABADO","origen":"Mar del Plata","destino":"Pza. Constitución","salida":"01:11","llegada":"07:24","duracionMin":373,"stops":[[1,"Mar del Plata",1,"Cabecera Origen","01:11",0,0,0],[2,"Vivoratá",0,"Sin parada","----",null,null,null],[3,"Cnel. Vidal",1,"Parada Intermedia","02:05",0,54,54],[4,"Gral. Pirán",0,"Sin parada","----",null,null,null],[5,"Las Armas",0,"Sin parada","----",null,null,null],[6,"Maipú",1,"Parada Intermedia","02:58",0,53,107],[7,"Gral. Guido",0,"Sin parada","----",null,null,null],[8,"Dolores",1,"Parada Intermedia","03:48",0,50,157],[9,"Sevigné",0,"Sin parada","----",null,null,null],[10,"Castelli",1,"Parada Intermedia","04:13",0,25,182],[11,"Lezama",0,"Sin parada","----",null,null,null],[12,"Chascomús",1,"Parada Intermedia","04:55",0,42,224],[13,"Cnel. Brandsen",1,"Parada Intermedia","06:09",0,74,298],[14,"Pza. Constitución",1,"Cabecera Destino","07:24",0,75,373]]},
+      {"id":"SVC-13","linea":"Línea Roca","corredor":"Pza. Constitución – Mar del Plata","sentido":"Vuelta (a Pza. Constitución)","tren":"304","clase":"Estándar","regla":"SABADO","origen":"Mar del Plata","destino":"Pza. Constitución","salida":"14:36","llegada":"21:05","duracionMin":389,"stops":[[1,"Mar del Plata",1,"Cabecera Origen","14:36",0,0,0],[2,"Vivoratá",1,"Parada Intermedia","15:12",0,36,36],[3,"Cnel. Vidal",1,"Parada Intermedia","15:31",0,19,55],[4,"Gral. Pirán",1,"Parada Intermedia","15:50",0,19,74],[5,"Las Armas",1,"Parada Intermedia","16:08",0,18,92],[6,"Maipú",1,"Parada Intermedia","16:28",0,20,112],[7,"Gral. Guido",1,"Parada Intermedia","16:46",0,18,130],[8,"Dolores",1,"Parada Intermedia","17:21",0,35,165],[9,"Sevigné",1,"Parada Intermedia","17:35",0,14,179],[10,"Castelli",1,"Parada Intermedia","17:49",0,14,193],[11,"Lezama",1,"Parada Intermedia","18:09",0,20,213],[12,"Chascomús",1,"Parada Intermedia","18:35",0,26,239],[13,"Cnel. Brandsen",1,"Parada Intermedia","19:50",0,75,314],[14,"Pza. Constitución",1,"Cabecera Destino","21:05",0,75,389]]},
+      {"id":"SVC-14","linea":"Línea Roca","corredor":"Pza. Constitución – Mar del Plata","sentido":"Vuelta (a Pza. Constitución)","tren":"302","clase":"Estándar","regla":"DOM_FER","origen":"Mar del Plata","destino":"Pza. Constitución","salida":"01:11","llegada":"07:24","duracionMin":373,"stops":[[1,"Mar del Plata",1,"Cabecera Origen","01:11",0,0,0],[2,"Vivoratá",0,"Sin parada","----",null,null,null],[3,"Cnel. Vidal",1,"Parada Intermedia","02:05",0,54,54],[4,"Gral. Pirán",0,"Sin parada","----",null,null,null],[5,"Las Armas",0,"Sin parada","----",null,null,null],[6,"Maipú",1,"Parada Intermedia","02:58",0,53,107],[7,"Gral. Guido",0,"Sin parada","----",null,null,null],[8,"Dolores",1,"Parada Intermedia","03:48",0,50,157],[9,"Sevigné",0,"Sin parada","----",null,null,null],[10,"Castelli",1,"Parada Intermedia","04:13",0,25,182],[11,"Lezama",0,"Sin parada","----",null,null,null],[12,"Chascomús",1,"Parada Intermedia","04:55",0,42,224],[13,"Cnel. Brandsen",1,"Parada Intermedia","06:09",0,74,298],[14,"Pza. Constitución",1,"Cabecera Destino","07:24",0,75,373]]},
+      {"id":"SVC-15","linea":"Línea Roca","corredor":"Pza. Constitución – Mar del Plata","sentido":"Vuelta (a Pza. Constitución)","tren":"304","clase":"Estándar","regla":"DOM_FER","origen":"Mar del Plata","destino":"Pza. Constitución","salida":"14:57","llegada":"21:26","duracionMin":389,"stops":[[1,"Mar del Plata",1,"Cabecera Origen","14:57",0,0,0],[2,"Vivoratá",1,"Parada Intermedia","15:33",0,36,36],[3,"Cnel. Vidal",1,"Parada Intermedia","15:52",0,19,55],[4,"Gral. Pirán",1,"Parada Intermedia","16:11",0,19,74],[5,"Las Armas",1,"Parada Intermedia","16:29",0,18,92],[6,"Maipú",1,"Parada Intermedia","16:49",0,20,112],[7,"Gral. Guido",1,"Parada Intermedia","17:07",0,18,130],[8,"Dolores",1,"Parada Intermedia","17:42",0,35,165],[9,"Sevigné",1,"Parada Intermedia","17:56",0,14,179],[10,"Castelli",1,"Parada Intermedia","18:10",0,14,193],[11,"Lezama",1,"Parada Intermedia","18:30",0,20,213],[12,"Chascomús",1,"Parada Intermedia","18:56",0,26,239],[13,"Cnel. Brandsen",1,"Parada Intermedia","20:11",0,75,314],[14,"Pza. Constitución",1,"Cabecera Destino","21:26",0,75,389]]},
+      {"id":"SVC-16","linea":"Línea Roca","corredor":"Pza. Constitución – Mar del Plata","sentido":"Vuelta (a Pza. Constitución)","tren":"306","clase":"Estándar","regla":"ULTIMO_FER","origen":"Mar del Plata","destino":"Pza. Constitución","salida":"22:53","llegada":"05:06","duracionMin":373,"stops":[[1,"Mar del Plata",1,"Cabecera Origen","22:53",0,0,0],[2,"Vivoratá",0,"Sin parada","----",null,null,null],[3,"Cnel. Vidal",1,"Parada Intermedia","23:47",0,54,54],[4,"Gral. Pirán",0,"Sin parada","----",null,null,null],[5,"Las Armas",0,"Sin parada","----",null,null,null],[6,"Maipú",1,"Parada Intermedia","00:40",1,53,107],[7,"Gral. Guido",0,"Sin parada","----",null,null,null],[8,"Dolores",1,"Parada Intermedia","01:30",1,50,157],[9,"Sevigné",0,"Sin parada","----",null,null,null],[10,"Castelli",1,"Parada Intermedia","01:55",1,25,182],[11,"Lezama",0,"Sin parada","----",null,null,null],[12,"Chascomús",1,"Parada Intermedia","02:37",1,42,224],[13,"Cnel. Brandsen",1,"Parada Intermedia","03:51",1,74,298],[14,"Pza. Constitución",1,"Cabecera Destino","05:06",1,75,373]]},
+      {"id":"SVC-17","linea":"Línea San Martín","corredor":"Retiro – Junín","sentido":"Ida (a Junín)","tren":"563","clase":"Estándar","regla":"DIARIO","origen":"Retiro (Línea San Martín)","destino":"Junín","salida":"18:15","llegada":"00:20","duracionMin":365,"stops":[[1,"Retiro (Línea San Martín)",1,"Cabecera Origen","18:15",0,0,0],[2,"José C. Paz",1,"Parada Intermedia","19:16",0,61,61],[3,"Pilar",1,"Parada Intermedia","19:36",0,20,81],[4,"Manzanares",1,"Parada Intermedia","19:46",0,10,91],[5,"Dr. Cabred",1,"Parada Intermedia","19:53",0,7,98],[6,"Cortines",1,"Parada Intermedia","20:05",0,12,110],[7,"Mercedes P (San Martín)",1,"Parada Intermedia","20:45",0,40,150],[8,"Franklin",1,"Parada Intermedia","21:19",0,34,184],[9,"Rivas",1,"Parada Intermedia","21:38",0,19,203],[10,"Castilla",1,"Parada Intermedia","21:53",0,15,218],[11,"Rawson",1,"Parada Intermedia","22:11",0,18,236],[12,"Cucha Cucha",1,"Parada Intermedia","22:41",0,30,266],[13,"Chacabuco",1,"Parada Intermedia","22:52",0,11,277],[14,"O'Higgins",1,"Parada Intermedia","23:27",0,35,312],[15,"Junín",1,"Cabecera Destino","00:20",1,53,365]]},
+      {"id":"SVC-18","linea":"Línea San Martín","corredor":"Retiro – Junín","sentido":"Vuelta (a Retiro)","tren":"564","clase":"Estándar","regla":"LUN_SAB","origen":"Junín","destino":"Retiro (Línea San Martín)","salida":"01:10","llegada":"07:28","duracionMin":378,"stops":[[1,"Junín",1,"Cabecera Origen","01:10",0,0,0],[2,"O'Higgins",1,"Parada Intermedia","01:59",0,49,49],[3,"Chacabuco",1,"Parada Intermedia","02:34",0,35,84],[4,"Cucha Cucha",1,"Parada Intermedia","02:43",0,9,93],[5,"Rawson",1,"Parada Intermedia","03:14",0,31,124],[6,"Castilla",1,"Parada Intermedia","03:31",0,17,141],[7,"Rivas",1,"Parada Intermedia","03:46",0,15,156],[8,"Franklin",1,"Parada Intermedia","04:13",0,27,183],[9,"Mercedes P (San Martín)",1,"Parada Intermedia","04:52",0,39,222],[10,"Cortines",1,"Parada Intermedia","05:33",0,41,263],[11,"Dr. Cabred",1,"Parada Intermedia","05:52",0,19,282],[12,"Manzanares",1,"Parada Intermedia","06:00",0,8,290],[13,"Pilar",1,"Parada Intermedia","06:10",0,10,300],[14,"José C. Paz",1,"Parada Intermedia","06:28",0,18,318],[15,"Sáenz Peña",1,"Parada Intermedia","07:06",0,38,356],[16,"Retiro (Línea San Martín)",1,"Cabecera Destino","07:28",0,22,378]]},
+      {"id":"SVC-19","linea":"Línea San Martín","corredor":"Retiro – Junín","sentido":"Vuelta (a Retiro)","tren":"564","clase":"Estándar","regla":"DOM_FER","origen":"Junín","destino":"Retiro (Línea San Martín)","salida":"01:31","llegada":"07:49","duracionMin":378,"stops":[[1,"Junín",1,"Cabecera Origen","01:31",0,0,0],[2,"O'Higgins",1,"Parada Intermedia","02:20",0,49,49],[3,"Chacabuco",1,"Parada Intermedia","02:55",0,35,84],[4,"Cucha Cucha",1,"Parada Intermedia","03:04",0,9,93],[5,"Rawson",1,"Parada Intermedia","03:35",0,31,124],[6,"Castilla",1,"Parada Intermedia","03:52",0,17,141],[7,"Rivas",1,"Parada Intermedia","04:07",0,15,156],[8,"Franklin",1,"Parada Intermedia","04:34",0,27,183],[9,"Mercedes P (San Martín)",1,"Parada Intermedia","05:13",0,39,222],[10,"Cortines",1,"Parada Intermedia","05:54",0,41,263],[11,"Dr. Cabred",1,"Parada Intermedia","06:14",0,20,283],[12,"Manzanares",1,"Parada Intermedia","06:22",0,8,291],[13,"Pilar",1,"Parada Intermedia","06:32",0,10,301],[14,"José C. Paz",1,"Parada Intermedia","06:50",0,18,319],[15,"Sáenz Peña",1,"Parada Intermedia","07:28",0,38,357],[16,"Retiro (Línea San Martín)",1,"Cabecera Destino","07:49",0,21,378]]},
+      {"id":"SVC-20","linea":"Línea Sarmiento","corredor":"Once – Bragado","sentido":"Ida (a Bragado)","tren":"151","clase":"Primera / Pullman","regla":"LMV_FER_OPT","origen":"Once","destino":"Bragado","salida":"18:35","llegada":"01:05","duracionMin":390,"stops":[[1,"Once",1,"Cabecera Origen","18:35",0,0,0],[2,"Haedo",1,"Parada Intermedia","19:20",0,45,45],[3,"Merlo",0,"Sin parada","----",null,null,null],[4,"Moreno",0,"Sin parada","----",null,null,null],[5,"Luján",1,"Parada Intermedia","20:47",0,87,132],[6,"Mercedes",1,"Parada Intermedia","21:48",0,61,193],[7,"Suipacha",1,"Parada Intermedia","22:31",0,43,236],[8,"Chivilcoy Sud",1,"Parada Intermedia","23:21",0,50,286],[9,"A. Vaccarezza",1,"Parada Intermedia","00:12",1,51,337],[10,"Mechita",1,"Parada Intermedia","00:47",1,35,372],[11,"Bragado",1,"Cabecera Destino","01:05",1,18,390]]},
+      {"id":"SVC-21","linea":"Línea Sarmiento","corredor":"Once – Bragado","sentido":"Ida (tramo Once – Moreno)","tren":"151","trenConsolidadoLV":"151/4203","clase":"Diferencial","regla":"LMV_FER_OPT","origen":"Once","destino":"Moreno","salida":"18:35","llegada":"19:55","duracionMin":80,"stops":[[1,"Once",1,"Cabecera Origen","18:35",0,0,0],[2,"Haedo",1,"Parada Intermedia","19:20",0,45,45],[3,"Merlo",1,"Parada Intermedia","19:45",0,25,70],[4,"Moreno",1,"Cabecera Destino","19:55",0,10,80],[5,"Luján",0,"Sin parada","----",null,null,null],[6,"Mercedes",0,"Sin parada","----",null,null,null],[7,"Suipacha",0,"Sin parada","----",null,null,null],[8,"Chivilcoy Sud",0,"Sin parada","----",null,null,null],[9,"A. Vaccarezza",0,"Sin parada","----",null,null,null],[10,"Mechita",0,"Sin parada","----",null,null,null],[11,"Bragado",0,"Sin parada","----",null,null,null]]},
+      {"id":"SVC-22","linea":"Línea Sarmiento","corredor":"Once – Bragado","sentido":"Ida (tramo Once – Moreno)","tren":"4203","clase":"Diferencial","regla":"MJ_DIF","origen":"Once","destino":"Moreno","salida":"18:35","llegada":"19:55","duracionMin":80,"stops":[[1,"Once",1,"Cabecera Origen","18:35",0,0,0],[2,"Haedo",1,"Parada Intermedia","19:20",0,45,45],[3,"Merlo",1,"Parada Intermedia","19:45",0,25,70],[4,"Moreno",1,"Cabecera Destino","19:55",0,10,80],[5,"Luján",0,"Sin parada","----",null,null,null],[6,"Mercedes",0,"Sin parada","----",null,null,null],[7,"Suipacha",0,"Sin parada","----",null,null,null],[8,"Chivilcoy Sud",0,"Sin parada","----",null,null,null],[9,"A. Vaccarezza",0,"Sin parada","----",null,null,null],[10,"Mechita",0,"Sin parada","----",null,null,null],[11,"Bragado",0,"Sin parada","----",null,null,null]]},
+      {"id":"SVC-23","linea":"Línea Sarmiento","corredor":"Once – Bragado","sentido":"Vuelta (a Once)","tren":"152","clase":"Primera / Pullman","regla":"LMV_FER_OPT","origen":"Bragado","destino":"Once","salida":"01:50","llegada":"08:00","duracionMin":370,"stops":[[1,"Bragado",1,"Cabecera Origen","01:50",0,0,0],[2,"Mechita",1,"Parada Intermedia","02:11",0,21,21],[3,"A. Vaccarezza",1,"Parada Intermedia","02:46",0,35,56],[4,"Chivilcoy Sud",1,"Parada Intermedia","03:39",0,53,109],[5,"Suipacha",1,"Parada Intermedia","04:27",0,48,157],[6,"Mercedes",1,"Parada Intermedia","05:07",0,40,197],[7,"Luján",1,"Parada Intermedia","05:49",0,42,239],[8,"Moreno",0,"Sin parada","----",null,null,null],[9,"Merlo",0,"Sin parada","----",null,null,null],[10,"Haedo",1,"Parada Intermedia","07:17",0,88,327],[11,"Once",1,"Cabecera Destino","08:00",0,43,370]]},
+      {"id":"SVC-24","linea":"Línea Sarmiento","corredor":"Once – Bragado","sentido":"Vuelta (tramo Moreno – Once)","tren":"152","trenConsolidadoLV":"152/4202","clase":"Diferencial","regla":"LMV_FER_OPT","origen":"Moreno","destino":"Once","salida":"06:39","llegada":"08:00","duracionMin":81,"stops":[[1,"Bragado",0,"Sin parada","----",null,null,null],[2,"Mechita",0,"Sin parada","----",null,null,null],[3,"A. Vaccarezza",0,"Sin parada","----",null,null,null],[4,"Chivilcoy Sud",0,"Sin parada","----",null,null,null],[5,"Suipacha",0,"Sin parada","----",null,null,null],[6,"Mercedes",0,"Sin parada","----",null,null,null],[7,"Luján",0,"Sin parada","----",null,null,null],[8,"Moreno",1,"Cabecera Origen","06:39",0,0,0],[9,"Merlo",1,"Parada Intermedia","06:51",0,12,12],[10,"Haedo",1,"Parada Intermedia","07:17",0,26,38],[11,"Once",1,"Cabecera Destino","08:00",0,43,81]]},
+      {"id":"SVC-25","linea":"Línea Sarmiento","corredor":"Once – Bragado","sentido":"Vuelta (tramo Moreno – Once)","tren":"4202","clase":"Diferencial","regla":"MJ_DIF","origen":"Moreno","destino":"Once","salida":"06:39","llegada":"08:00","duracionMin":81,"stops":[[1,"Bragado",0,"Sin parada","----",null,null,null],[2,"Mechita",0,"Sin parada","----",null,null,null],[3,"A. Vaccarezza",0,"Sin parada","----",null,null,null],[4,"Chivilcoy Sud",0,"Sin parada","----",null,null,null],[5,"Suipacha",0,"Sin parada","----",null,null,null],[6,"Mercedes",0,"Sin parada","----",null,null,null],[7,"Luján",0,"Sin parada","----",null,null,null],[8,"Moreno",1,"Cabecera Origen","06:39",0,0,0],[9,"Merlo",1,"Parada Intermedia","06:51",0,12,12],[10,"Haedo",1,"Parada Intermedia","07:17",0,26,38],[11,"Once",1,"Cabecera Destino","08:00",0,43,81]]}
+    ];
+
+    /**
+     * =========================================================================
+     * 5. REGLAS OPERATIVAS DE CALENDARIO (LUN–VIE, FIN DE SEMANA Y DÍAS INDIVIDUALES)
+     * =========================================================================
+     */
+    const DAY_NAMES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+    const DAY_SHORT = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
+    function isServiceOperatingInWeekdayConsolidated(service) {
+      const r = service.regla;
+      // En Día de Semana (Lun-Vie) consolidamos todos los servicios hábiles L-V,
+      // evitando duplicar los coches diferenciales alternos MJ_DIF que cubren la misma franja LMV_FER_OPT.
+      if (r === "MJ_DIF") return false;
+      return (
+        r === "DIARIO" ||
+        r === "HABIL_LV" ||
+        r === "HABIL_LV_OBRAS" ||
+        r === "VISPERA_FER" ||
+        r === "LUN_SAB" ||
+        r === "LMV_FER_OPT"
+      );
+    }
+
+    function isServiceOperatingInWeekendConsolidated(service) {
+      const r = service.regla;
+      // En Fin de Semana (Sáb-Dom) consolidamos la oferta de fin de semana
+      // sin duplicar los números de tren repetidos entre SABADO y DOM_FER.
+      return r === "DIARIO" || r === "DOM_FER" || r === "ULTIMO_FER";
+    }
+
+    function isServiceOperatingOnDay(service, dayIdx, scenario) {
+      const isLunesFeriado = (scenario === "finde_largo" && dayIdx === 0);
+      const r = service.regla;
+
+      if (r === "DIARIO") return true;
+      if (r === "HABIL_LV") return dayIdx >= 0 && dayIdx <= 4 && !isLunesFeriado;
+      if (r === "HABIL_LV_OBRAS") return (dayIdx === 0 || dayIdx === 4) && !isLunesFeriado;
+      if (r === "VISPERA_FER") return dayIdx === 4;
+      if (r === "SABADO") return dayIdx === 5;
+      if (r === "DOM_FER") return dayIdx === 6 || isLunesFeriado;
+      if (r === "ULTIMO_FER") {
+        return scenario === "finde_largo" ? isLunesFeriado : dayIdx === 6;
+      }
+      if (r === "LUN_SAB") return dayIdx >= 0 && dayIdx <= 5 && !isLunesFeriado;
+      if (r === "LMV_FER_OPT") return (dayIdx === 0 || dayIdx === 2 || dayIdx === 4) && !isLunesFeriado;
+      if (r === "MJ_DIF") return dayIdx === 1 || dayIdx === 3;
+      return false;
+    }
+
+    function isServiceActiveForMode(service, dayMode, scenario, isPrevNight) {
+      if (dayMode === "weekday") {
+        return isServiceOperatingInWeekdayConsolidated(service);
+      }
+      if (dayMode === "weekend") {
+        return isServiceOperatingInWeekendConsolidated(service);
+      }
+      const dayIdx = Number(dayMode);
+      const targetIdx = isPrevNight ? (dayIdx + 6) % 7 : dayIdx;
+      return isServiceOperatingOnDay(service, targetIdx, scenario);
+    }
+
+    function getServiceDisplayTrainCode(service, dayMode) {
+      if (dayMode === "weekday" && service.trenConsolidadoLV) {
+        return service.trenConsolidadoLV;
+      }
+      return service.tren;
+    }
+
+    /**
+     * =========================================================================
+     * 6. DIBUJO DE VECTORES, ESTACIONES Y ETIQUETAS SENSIBLES AL ZOOM
+     * =========================================================================
+     */
+    const baseVectorsLayer = L.layerGroup().addTo(map);
+    const stationsLayer = L.layerGroup().addTo(map);
+    const cabecerasLabelsLayer = L.layerGroup().addTo(map);
+    const intermediateLabelsLayer = L.layerGroup(); // Se activa únicamente cuando zoom >= 8
+
+    function updateLabelsVisibilityByZoom() {
+      const currentZoom = map.getZoom();
+      if (currentZoom >= INTERMEDIATE_LABELS_MIN_ZOOM) {
+        if (!map.hasLayer(intermediateLabelsLayer)) {
+          map.addLayer(intermediateLabelsLayer);
+        }
+      } else {
+        if (map.hasLayer(intermediateLabelsLayer)) {
+          map.removeLayer(intermediateLabelsLayer);
+        }
+      }
+    }
+
+    function drawRailwayNetwork() {
+      baseVectorsLayer.clearLayers();
+      stationsLayer.clearLayers();
+      cabecerasLabelsLayer.clearLayers();
+      intermediateLabelsLayer.clearLayers();
+
+      const lineConfigs = [
+        {
+          linea: "Línea Mitre",
+          color: LINE_COLORS["Línea Mitre"],
+          weight: 4,
+          label: `Línea Mitre: Retiro ↔ Rosario Norte (${CORRIDOR_DISTANCES_KM["Línea Mitre"].toFixed(1)} km)`
+        },
+        {
+          linea: "Línea Roca",
+          color: LINE_COLORS["Línea Roca"],
+          weight: 4,
+          label: `Línea Roca: Pza. Constitución ↔ Mar del Plata (${CORRIDOR_DISTANCES_KM["Línea Roca"].toFixed(1)} km)`
+        },
+        {
+          linea: "Línea San Martín",
+          color: LINE_COLORS["Línea San Martín"],
+          weight: 4,
+          label: `Línea San Martín: Retiro ↔ Junín (${CORRIDOR_DISTANCES_KM["Línea San Martín"].toFixed(1)} km)`
+        },
+        {
+          linea: "Línea Sarmiento",
+          color: LINE_COLORS["Línea Sarmiento"],
+          weight: 4,
+          label: `Línea Sarmiento: Once ↔ Bragado (${CORRIDOR_DISTANCES_KM["Línea Sarmiento"].toFixed(1)} km)`
+        }
+      ];
+
+      lineConfigs.forEach((cfg) => {
+        const coords = CORRIDOR_POLYLINES[cfg.linea];
+        L.polyline(coords, {
+          color: "#ffffff",
+          weight: cfg.weight + 2.5,
+          opacity: 0.75
+        }).addTo(baseVectorsLayer);
+
+        L.polyline(coords, {
+          color: cfg.color,
+          weight: cfg.weight,
+          opacity: 0.95
+        })
+          .bindTooltip(cfg.label, { sticky: true, className: "adaptive-tooltip" })
+          .addTo(baseVectorsLayer);
+      });
+
+      // Marcadores puntuales de las 54 estaciones
+      Object.entries(STATIONS).forEach(([name, st]) => {
+        const isTerminal = Boolean(st.terminal);
+        L.circleMarker(st.coords, {
+          radius: isTerminal ? 6 : 4,
+          color: "#0f172a",
+          weight: isTerminal ? 2 : 1.5,
+          fillColor: isTerminal ? "#f59e0b" : "#ffffff",
+          fillOpacity: 1
+        })
+          .bindTooltip(
+            `<strong>${name}</strong><br/><span style="opacity:0.75;">${st.linea}${isTerminal ? " · Cabecera" : " · Estación"}</span>`,
+            { direction: "top", offset: [0, -6], className: "adaptive-tooltip" }
+          )
+          .addTo(stationsLayer);
+      });
+
+      // 1) Cabeceras principales: siempre visibles incluso en zoom por defecto (Zoom 7)
+      const CABECERAS_LABELS = [
+        { name: "Retiro (Mitre / S. Martín)", coords: [-34.5906, -58.3746], dir: "right", offset: [10, -5] },
+        { name: "Once", coords: [-34.6094, -58.4067], dir: "left", offset: [-10, 0] },
+        { name: "Pza. Constitución", coords: [-34.6278, -58.3806], dir: "right", offset: [10, 5] },
+        { name: "Rosario Norte", coords: [-32.9331, -60.6542], dir: "top", offset: [0, -10] },
+        { name: "Junín", coords: [-34.5839, -60.9433], dir: "left", offset: [-10, 0] },
+        { name: "Bragado", coords: [-35.1189, -60.4883], dir: "left", offset: [-10, 0] },
+        { name: "Mar del Plata", coords: [-37.9897, -57.5619], dir: "right", offset: [10, 0] }
+      ];
+
+      CABECERAS_LABELS.forEach((city) => {
+        L.tooltip({
+          permanent: true,
+          direction: city.dir,
+          offset: city.offset,
+          className: "cabecera-label"
+        })
+          .setLatLng(city.coords)
+          .setContent(city.name)
+          .addTo(cabecerasLabelsLayer);
+      });
+
+      // 2) Localidades no cabeceras: visibles ÚNICAMENTE cuando hay zoom activado (Zoom >= 8)
+      const LOCALIDADES_INTERMEDIAS = [
+        { name: "Campana", coords: [-34.1601, -58.9589], dir: "right", offset: [8, 4] },
+        { name: "Zárate", coords: [-34.0981, -59.0286], dir: "right", offset: [8, -4] },
+        { name: "Baradero", coords: [-33.8122, -59.5064], dir: "right", offset: [8, 0] },
+        { name: "San Pedro", coords: [-33.6794, -59.6669], dir: "right", offset: [8, 0] },
+        { name: "Ramallo", coords: [-33.4856, -60.0061], dir: "right", offset: [8, 0] },
+        { name: "San Nicolás", coords: [-33.3358, -60.2253], dir: "right", offset: [8, 0] },
+        { name: "Arroyo Seco", coords: [-33.1553, -60.5086], dir: "right", offset: [8, 0] },
+        { name: "José C. Paz", coords: [-34.5153, -58.7653], dir: "top", offset: [0, -7] },
+        { name: "Pilar", coords: [-34.4586, -58.9142], dir: "top", offset: [0, -7] },
+        { name: "Moreno", coords: [-34.6336, -58.7917], dir: "bottom", offset: [0, 7] },
+        { name: "Luján", coords: [-34.5644, -59.1156], dir: "top", offset: [0, -7] },
+        { name: "Mercedes", coords: [-34.6522, -59.4320], dir: "bottom", offset: [0, 8] },
+        { name: "Suipacha", coords: [-34.7703, -59.6872], dir: "bottom", offset: [0, 7] },
+        { name: "Chacabuco", coords: [-34.6417, -60.4717], dir: "top", offset: [0, -7] },
+        { name: "Chivilcoy Sud", coords: [-34.8958, -60.0167], dir: "bottom", offset: [0, 7] },
+        { name: "Mechita", coords: [-35.0706, -60.4094], dir: "bottom", offset: [0, 7] },
+        { name: "Cnel. Brandsen", coords: [-35.1669, -58.2344], dir: "right", offset: [8, 0] },
+        { name: "Chascomús", coords: [-35.5750, -58.0125], dir: "right", offset: [8, 0] },
+        { name: "Lezama", coords: [-35.8764, -57.8936], dir: "right", offset: [8, 0] },
+        { name: "Castelli", coords: [-36.0911, -57.8047], dir: "right", offset: [8, 0] },
+        { name: "Dolores", coords: [-36.3136, -57.6792], dir: "right", offset: [8, 0] },
+        { name: "Gral. Guido", coords: [-36.6431, -57.7931], dir: "right", offset: [8, 0] },
+        { name: "Maipú", coords: [-36.8639, -57.8789], dir: "right", offset: [8, 0] },
+        { name: "Gral. Pirán", coords: [-37.2747, -57.7714], dir: "right", offset: [8, 0] },
+        { name: "Cnel. Vidal", coords: [-37.4481, -57.7286], dir: "right", offset: [8, 0] }
+      ];
+
+      LOCALIDADES_INTERMEDIAS.forEach((loc) => {
+        L.tooltip({
+          permanent: true,
+          direction: loc.dir,
+          offset: loc.offset,
+          className: "localidad-label"
+        })
+          .setLatLng(loc.coords)
+          .setContent(loc.name)
+          .addTo(intermediateLabelsLayer);
+      });
+
+      updateLabelsVisibilityByZoom();
+    }
+
+    /**
+     * =========================================================================
+     * 7. MOTOR CINEMÁTICO CONTINUO TRAMO POR TRAMO
+     * =========================================================================
+     */
+    function toMinutes(hhmm) {
+      const [h, m] = hhmm.split(":").map(Number);
+      return h * 60 + m;
+    }
+
+    function formatMinutes(totalMins) {
+      const m = ((Math.floor(totalMins) % 1440) + 1440) % 1440;
+      const hh = String(Math.floor(m / 60)).padStart(2, "0");
+      const mm = String(m % 60).padStart(2, "0");
+      return `${hh}:${mm}`;
+    }
+
+    function formatDurationHM(durationMins) {
+      const h = Math.floor(durationMins / 60);
+      const m = Math.round(durationMins % 60);
+      return `${h}h ${String(m).padStart(2, "0")}m`;
+    }
+
+    function computeSegmentHeadingDeg(p1, p2) {
+      const midLatRad = (((p1[0] + p2[0]) / 2) * Math.PI) / 180;
+      const dx = (p2[1] - p1[1]) * Math.cos(midLatRad);
+      const dy = p2[0] - p1[0];
+      if (Math.abs(dx) < 1e-12 && Math.abs(dy) < 1e-12) return 90;
+      const rad = Math.atan2(dx, dy);
+      return ((rad * 180) / Math.PI + 360) % 360;
+    }
+
+    function offsetLateralStarboard(pos, headingDeg, lateralMeters) {
+      if (!lateralMeters) return pos;
+      const rightBearingRad = ((headingDeg + 90) * Math.PI) / 180;
+      const latRad = (pos[0] * Math.PI) / 180;
+      const dNorth = lateralMeters * Math.cos(rightBearingRad);
+      const dEast = lateralMeters * Math.sin(rightBearingRad);
+      const dLat = dNorth / 111320;
+      const dLon = dEast / (111320 * Math.max(0.2, Math.cos(latRad)));
+      return [pos[0] + dLat, pos[1] + dLon];
+    }
+
+    function interpolatePolylineWithHeading(coords, fraction, lateralMeters = 280) {
+      if (!coords || coords.length === 0) return { pos: [-34.6, -58.38], headingDeg: 90 };
+      if (coords.length === 1) return { pos: coords[0], headingDeg: 90 };
+
+      const clamped = Math.max(0, Math.min(1, fraction));
+      let totalDist = 0;
+      const segs = [];
+      for (let i = 0; i < coords.length - 1; i++) {
+        const d = haversineKm(coords[i], coords[i + 1]);
+        segs.push(d);
+        totalDist += d;
+      }
+
+      if (clamped <= 0) {
+        const headingDeg = computeSegmentHeadingDeg(coords[0], coords[1]);
+        return { pos: offsetLateralStarboard(coords[0], headingDeg, lateralMeters), headingDeg };
+      }
+      if (clamped >= 1) {
+        const headingDeg = computeSegmentHeadingDeg(coords[coords.length - 2], coords[coords.length - 1]);
+        return { pos: offsetLateralStarboard(coords[coords.length - 1], headingDeg, lateralMeters), headingDeg };
+      }
+
+      let target = totalDist * clamped;
+      for (let i = 0; i < segs.length; i++) {
+        if (target <= segs[i] || i === segs.length - 1) {
+          const r = segs[i] === 0 ? 0 : Math.min(1, target / segs[i]);
+          const rawPos = [
+            coords[i][0] + (coords[i + 1][0] - coords[i][0]) * r,
+            coords[i][1] + (coords[i + 1][1] - coords[i][1]) * r
+          ];
+          const headingDeg = computeSegmentHeadingDeg(coords[i], coords[i + 1]);
+          return {
+            pos: offsetLateralStarboard(rawPos, headingDeg, lateralMeters),
+            headingDeg
+          };
+        }
+        target -= segs[i];
+      }
+
+      const fallbackHeading = computeSegmentHeadingDeg(coords[coords.length - 2], coords[coords.length - 1]);
+      return {
+        pos: offsetLateralStarboard(coords[coords.length - 1], fallbackHeading, lateralMeters),
+        headingDeg: fallbackHeading
+      };
+    }
+
+    function isServiceRunningAtMinute(service, evalMins) {
+      const startMins = toMinutes(service.salida);
+      const endMins = startMins + service.duracionMin;
+      return evalMins >= startMins && evalMins <= endMins;
+    }
+
+    function evaluateServiceKinematics(service, evalMins) {
+      const startMins = toMinutes(service.salida);
+      const endMins = startMins + service.duracionMin;
+
+      if (evalMins < startMins || evalMins > endMins) return null;
+
+      const activeStops = service.stops.filter((s) => s[2] === 1);
+      if (activeStops.length < 2) return null;
+
+      const legs = [];
+      let totalDistKm = 0;
+      for (let i = 0; i < activeStops.length - 1; i++) {
+        const stA = activeStops[i][1];
+        const stB = activeStops[i + 1][1];
+        const tA = startMins + activeStops[i][7];
+        const tB = startMins + activeStops[i + 1][7];
+        const poly = getSubPolyline(stA, stB);
+        const distKm = polylineDistanceKm(poly);
+
+        legs.push({
+          stA,
+          stB,
+          tA,
+          tB,
+          poly,
+          distKm,
+          cumDistStart: totalDistKm
+        });
+        totalDistKm += distKm;
+      }
+
+      const lateralMeters = service.clase === "Diferencial" ? 420 : 240;
+
+      for (let i = 0; i < legs.length; i++) {
+        const leg = legs[i];
+        if (evalMins >= leg.tA && evalMins <= leg.tB) {
+          const legDur = Math.max(0.5, leg.tB - leg.tA);
+          const frac = Math.max(0, Math.min(1, (evalMins - leg.tA) / legDur));
+          const { pos, headingDeg } = interpolatePolylineWithHeading(leg.poly, frac, lateralMeters);
+          const traveledKm = leg.cumDistStart + leg.distKm * frac;
+          const segSpeedKmh = leg.distKm / (legDur / 60);
+          const overallProgress = totalDistKm > 0 ? traveledKm / totalDistKm : (evalMins - startMins) / service.duracionMin;
+
+          return {
+            pos,
+            headingDeg,
+            currentLegLabel: `${leg.stA} → ${leg.stB}`,
+            speedKmh: segSpeedKmh,
+            traveledKm,
+            totalDistKm,
+            progress: overallProgress,
+            totalDurationMins: service.duracionMin
+          };
+        }
+      }
+
+      return null;
+    }
+
+    function getBallCssClass(service) {
+      if (service.linea === "Línea Mitre") return "train-ball train-ball-mitre";
+      if (service.linea === "Línea Roca") return "train-ball train-ball-roca";
+      if (service.linea === "Línea San Martín") return "train-ball train-ball-sanmartin";
+      if (service.clase === "Diferencial") return "train-ball train-ball-sarmiento-dif";
+      return "train-ball train-ball-sarmiento";
+    }
+
+    function getAccentHex(service) {
+      if (service.linea === "Línea Mitre") return LINE_COLORS["Línea Mitre"];
+      if (service.linea === "Línea Roca") return LINE_COLORS["Línea Roca"];
+      if (service.linea === "Línea San Martín") return LINE_COLORS["Línea San Martín"];
+      if (service.clase === "Diferencial") return "#eab308";
+      return LINE_COLORS["Línea Sarmiento"];
+    }
+
+    /**
+     * =========================================================================
+     * 8. SERIE TEMPORAL 24 H, GRÁFICO DE EVOLUCIÓN Y TABLA HORARIA POR LÍNEA
+     * =========================================================================
+     */
+    let evolutionSeriesCache = []; // 288 pasos cada 5 min (0..1435)
+    let hourlySummaryCache = [];   // 24 horas (0..23)
+    let activeAnalyticsTab = "chart";
+    let chartRenderMode = "lines"; // "lines" | "bars"
+
+    function countOperatingByLineAtMinute(normalizedMins, dayMode, scenario, filterLinea) {
+      const counts = {
+        "Línea Mitre": 0,
+        "Línea Roca": 0,
+        "Línea San Martín": 0,
+        "Línea Sarmiento": 0,
+        total: 0
+      };
+
+      RAIL_SERVICES.forEach((service) => {
+        if (filterLinea !== "all" && service.linea !== filterLinea) return;
+
+        // 1) Corrida iniciada hoy
+        if (isServiceActiveForMode(service, dayMode, scenario, false)) {
+          if (isServiceRunningAtMinute(service, normalizedMins)) {
+            counts[service.linea] += 1;
+            counts.total += 1;
+          }
+        }
+
+        // 2) Corrida nocturna iniciada la noche anterior (+1d)
+        const startMins = toMinutes(service.salida);
+        if (startMins + service.duracionMin >= 1440) {
+          if (isServiceActiveForMode(service, dayMode, scenario, true)) {
+            if (isServiceRunningAtMinute(service, normalizedMins + 1440)) {
+              counts[service.linea] += 1;
+              counts.total += 1;
+            }
+          }
+        }
+      });
+
+      return counts;
+    }
+
+    function rebuildEvolutionData() {
+      evolutionSeriesCache = [];
+      for (let m = 0; m < 1440; m += 5) {
+        const c = countOperatingByLineAtMinute(m, selectedDayMode, selectedScenario, lineFilter);
+        evolutionSeriesCache.push({ minute: m, ...c });
+      }
+
+      hourlySummaryCache = [];
+      for (let h = 0; h < 24; h++) {
+        const mid = countOperatingByLineAtMinute(h * 60 + 30, selectedDayMode, selectedScenario, lineFilter);
+        const start = countOperatingByLineAtMinute(h * 60 + 5, selectedDayMode, selectedScenario, lineFilter);
+        const peak = {
+          hour: h,
+          "Línea Mitre": Math.max(start["Línea Mitre"], mid["Línea Mitre"]),
+          "Línea Roca": Math.max(start["Línea Roca"], mid["Línea Roca"]),
+          "Línea San Martín": Math.max(start["Línea San Martín"], mid["Línea San Martín"]),
+          "Línea Sarmiento": Math.max(start["Línea Sarmiento"], mid["Línea Sarmiento"]),
+          total: Math.max(start.total, mid.total)
+        };
+        hourlySummaryCache.push(peak);
+      }
+
+      renderHourlyTable(Math.floor(((simMinutes % 1440) + 1440) % 1440 / 60));
+    }
+
+    function renderHourlyTable(activeHour) {
+      const container = document.getElementById("analytics-view-table");
+      if (!container) return;
+
+      let html = `
+        <table class="w-full text-left border-collapse text-[11px]">
+          <thead class="sticky top-0 app-sidebar z-10">
+            <tr class="border-b brd-subtle txt-muted">
+              <th class="py-1.5 px-2 font-semibold">Franja Horaria</th>
+              <th class="py-1.5 px-2 text-center font-semibold" style="color:#2563eb;">Línea Mitre</th>
+              <th class="py-1.5 px-2 text-center font-semibold" style="color:#ea580c;">Línea Roca</th>
+              <th class="py-1.5 px-2 text-center font-semibold" style="color:#10b981;">Línea San Martín</th>
+              <th class="py-1.5 px-2 text-center font-semibold" style="color:#9333ea;">Línea Sarmiento</th>
+              <th class="py-1.5 px-2 text-right font-semibold">Total Activos</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y brd-subtle tabular-nums">
+      `;
+
+      hourlySummaryCache.forEach((row) => {
+        const isCurrent = row.hour === activeHour;
+        const hh = String(row.hour).padStart(2, "0");
+        const rowBg = isCurrent
+          ? "bg-sky-500/15 font-bold"
+          : "hover:bg-slate-500/5";
+
+        html += `
+          <tr
+            onclick="window.jumpToMinute(${row.hour * 60 + 15})"
+            title="Clic para saltar a las ${hh}:15"
+            class="${rowBg} cursor-pointer transition-colors"
+          >
+            <td class="py-1 px-2 txt-primary">
+              ${hh}:00 – ${hh}:59
+              ${isCurrent ? '<span class="ml-1.5 text-[9.5px] px-1.5 py-0.2 rounded bg-sky-600 text-white">Ahora</span>' : ''}
+            </td>
+            <td class="py-1 px-2 text-center font-semibold" style="color:#2563eb;">${row["Línea Mitre"]}</td>
+            <td class="py-1 px-2 text-center font-semibold" style="color:#ea580c;">${row["Línea Roca"]}</td>
+            <td class="py-1 px-2 text-center font-semibold" style="color:#10b981;">${row["Línea San Martín"]}</td>
+            <td class="py-1 px-2 text-center font-semibold" style="color:#9333ea;">${row["Línea Sarmiento"]}</td>
+            <td class="py-1 px-2 text-right txt-primary font-bold">${row.total}</td>
+          </tr>
+        `;
+      });
+
+      html += `</tbody></table>`;
+      container.innerHTML = html;
+    }
+
+    function drawEvolutionChart(normalizedMins, liveCounts) {
+      const canvas = document.getElementById("evolution-chart");
+      if (!canvas) return;
+      const parent = canvas.parentElement;
+      if (!parent || parent.classList.contains("hidden")) return;
+
+      const rect = parent.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+
+      const dpr = window.devicePixelRatio || 1;
+      const width = Math.floor(rect.width);
+      const height = Math.floor(rect.height);
+
+      if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+      }
+
+      const ctx = canvas.getContext("2d");
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, width, height);
+
+      const styles = getComputedStyle(document.body);
+      const gridColor = styles.getPropertyValue("--chart-grid").trim() || "rgba(148,163,184,0.3)";
+      const axisColor = styles.getPropertyValue("--chart-axis").trim() || "#64748b";
+      const cursorColor = styles.getPropertyValue("--chart-cursor").trim() || "#0284c7";
+
+      const padLeft = 32;
+      const padRight = 14;
+      const padTop = 18;
+      const padBottom = 22;
+      const plotW = Math.max(40, width - padLeft - padRight);
+      const plotH = Math.max(30, height - padTop - padBottom);
+
+      let maxVal = 4;
+      if (chartRenderMode === "bars") {
+        hourlySummaryCache.forEach((h) => {
+          if (h.total > maxVal) maxVal = h.total;
+        });
+      } else {
+        evolutionSeriesCache.forEach((pt) => {
+          ["Línea Mitre", "Línea Roca", "Línea San Martín", "Línea Sarmiento"].forEach((ln) => {
+            if (pt[ln] > maxVal) maxVal = pt[ln];
+          });
+        });
+      }
+      const yMax = Math.max(4, Math.ceil(maxVal + 1));
+
+      const xForMinute = (m) => padLeft + (m / 1440) * plotW;
+      const yForValue = (v) => padTop + plotH - (v / yMax) * plotH;
+
+      // Grilla horizontal y etiquetas Y enteras
+      ctx.font = "600 10px Inter, sans-serif";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+
+      for (let v = 0; v <= yMax; v++) {
+        const y = Math.round(yForValue(v)) + 0.5;
+        ctx.strokeStyle = gridColor;
+        ctx.lineWidth = v === 0 ? 1.2 : 0.8;
+        ctx.beginPath();
+        ctx.moveTo(padLeft, y);
+        ctx.lineTo(padLeft + plotW, y);
+        ctx.stroke();
+
+        ctx.fillStyle = axisColor;
+        ctx.fillText(String(v), padLeft - 6, y);
+      }
+
+      // Grilla vertical cada 3 horas + etiquetas X
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      for (let h = 0; h <= 24; h += 3) {
+        const m = h === 24 ? 1439 : h * 60;
+        const x = Math.round(xForMinute(m)) + 0.5;
+        ctx.strokeStyle = gridColor;
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(x, padTop);
+        ctx.lineTo(x, padTop + plotH);
+        ctx.stroke();
+
+        const label = h === 24 ? "23:59" : `${String(h).padStart(2, "0")}:00`;
+        ctx.fillStyle = axisColor;
+        ctx.fillText(label, x, padTop + plotH + 5);
+      }
+
+      const orderedLines = [
+        "Línea Mitre",
+        "Línea Roca",
+        "Línea San Martín",
+        "Línea Sarmiento"
+      ];
+
+      if (chartRenderMode === "bars") {
+        const barSlotW = plotW / 24;
+        const barW = Math.max(4, barSlotW * 0.72);
+        const currentHour = Math.floor(normalizedMins / 60);
+
+        hourlySummaryCache.forEach((hRow) => {
+          const xCenter = padLeft + (hRow.hour + 0.5) * barSlotW;
+          const xLeft = xCenter - barW / 2;
+          let cumV = 0;
+
+          orderedLines.forEach((linea) => {
+            const val = hRow[linea];
+            if (val <= 0) return;
+            const yTop = yForValue(cumV + val);
+            const yBot = yForValue(cumV);
+            const segH = Math.max(1, yBot - yTop);
+
+            ctx.fillStyle = LINE_COLORS[linea];
+            ctx.globalAlpha = hRow.hour === currentHour ? 1.0 : 0.82;
+            ctx.fillRect(xLeft, yTop, barW, segH);
+
+            if (hRow.hour === currentHour) {
+              ctx.strokeStyle = "#ffffff";
+              ctx.lineWidth = 1;
+              ctx.strokeRect(xLeft, yTop, barW, segH);
+            }
+            cumV += val;
+          });
+        });
+        ctx.globalAlpha = 1.0;
+      } else {
+        const pixelOffsets = {
+          "Línea Mitre": -1.5,
+          "Línea Roca": -0.5,
+          "Línea San Martín": 0.5,
+          "Línea Sarmiento": 1.5
+        };
+
+        orderedLines.forEach((linea) => {
+          if (lineFilter !== "all" && lineFilter !== linea) return;
+          const color = LINE_COLORS[linea];
+          const dy = pixelOffsets[linea] || 0;
+
+          ctx.beginPath();
+          evolutionSeriesCache.forEach((pt, idx) => {
+            const x = xForMinute(pt.minute);
+            const y = yForValue(pt[linea]) + dy;
+            if (idx === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          });
+          ctx.lineTo(xForMinute(1435), yForValue(0));
+          ctx.lineTo(xForMinute(0), yForValue(0));
+          ctx.closePath();
+          ctx.fillStyle = color + "18";
+          ctx.fill();
+
+          ctx.beginPath();
+          evolutionSeriesCache.forEach((pt, idx) => {
+            const x = xForMinute(pt.minute);
+            const y = yForValue(pt[linea]) + dy;
+            if (idx === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          });
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2.3;
+          ctx.lineJoin = "round";
+          ctx.stroke();
+        });
+      }
+
+      // Cursor vertical sincronizado con el reloj simulado
+      const cursorX = xForMinute(normalizedMins);
+      ctx.save();
+      ctx.strokeStyle = cursorColor;
+      ctx.lineWidth = 1.8;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.moveTo(cursorX, padTop - 4);
+      ctx.lineTo(cursorX, padTop + plotH);
+      ctx.stroke();
+      ctx.restore();
+
+      if (chartRenderMode === "lines") {
+        orderedLines.forEach((linea) => {
+          if (lineFilter !== "all" && lineFilter !== linea) return;
+          const val = liveCounts[linea] || 0;
+          const cy = yForValue(val);
+          ctx.beginPath();
+          ctx.arc(cursorX, cy, 4.2, 0, Math.PI * 2);
+          ctx.fillStyle = LINE_COLORS[linea];
+          ctx.fill();
+          ctx.lineWidth = 1.6;
+          ctx.strokeStyle = "#ffffff";
+          ctx.stroke();
+        });
+      }
+
+      const badgeText = `${formatMinutes(normalizedMins)} · ${liveCounts.total} tren${liveCounts.total === 1 ? "" : "es"}`;
+      ctx.font = "700 10px Inter, sans-serif";
+      const textW = ctx.measureText(badgeText).width;
+      const pillW = textW + 12;
+      const pillH = 16;
+      const pillX = Math.max(padLeft, Math.min(padLeft + plotW - pillW, cursorX - pillW / 2));
+      const pillY = 1;
+
+      ctx.fillStyle = cursorColor;
+      ctx.beginPath();
+      ctx.roundRect(pillX, pillY, pillW, pillH, 5);
+      ctx.fill();
+
+      ctx.fillStyle = isDarkTheme ? "#0f172a" : "#ffffff";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(badgeText, pillX + pillW / 2, pillY + pillH / 2 + 0.5);
+
+      ctx.restore();
+    }
+
+    /**
+     * =========================================================================
+     * 9. TABLA DE VELOCIDADES MEDIAS COMERCIALES POR CORREDOR
+     * =========================================================================
+     */
+    function renderSpeedSummaryTable() {
+      const container = document.getElementById("speed-summary-container");
+      if (!container) return;
+
+      const rows = [
+        {
+          label: "Mitre · Retiro ↔ Rosario (277/278)",
+          dotClass: "bg-[#2563eb]",
+          distKm: CORRIDOR_DISTANCES_KM["Línea Mitre"],
+          totalMins: 454
+        },
+        {
+          label: "Roca · Constitución ↔ MdP (301/304)",
+          dotClass: "bg-[#ea580c]",
+          distKm: CORRIDOR_DISTANCES_KM["Línea Roca"],
+          totalMins: 362
+        },
+        {
+          label: "Roca · Constitución ↔ MdP (Rápido 305)",
+          dotClass: "bg-[#ea580c]",
+          distKm: CORRIDOR_DISTANCES_KM["Línea Roca"],
+          totalMins: 350
+        },
+        {
+          label: "San Martín · Retiro ↔ Junín (563)",
+          dotClass: "bg-[#10b981]",
+          distKm: CORRIDOR_DISTANCES_KM["Línea San Martín"],
+          totalMins: 365
+        },
+        {
+          label: "Sarmiento · Once ↔ Bragado (151)",
+          dotClass: "bg-[#9333ea]",
+          distKm: CORRIDOR_DISTANCES_KM["Línea Sarmiento"],
+          totalMins: 390
+        }
+      ];
+
+      let html = `
+        <table class="w-full text-left border-collapse text-[11px]">
+          <thead>
+            <tr class="border-b brd-subtle txt-muted">
+              <th class="py-1.5 pr-2 font-semibold">Corredor / Servicio</th>
+              <th class="py-1.5 px-1.5 text-right font-semibold">Dist.</th>
+              <th class="py-1.5 px-1.5 text-right font-semibold">Cartelera</th>
+              <th class="py-1.5 pl-1.5 text-right font-semibold">Vel. Media</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y brd-subtle">
+      `;
+
+      rows.forEach((r) => {
+        const commercialKmh = r.distKm / (r.totalMins / 60);
+        html += `
+          <tr>
+            <td class="py-1.5 pr-2 txt-primary font-medium">
+              <span class="inline-block w-2 h-2 rounded-full ${r.dotClass} mr-1.5"></span>${r.label}
+            </td>
+            <td class="py-1.5 px-1.5 text-right txt-secondary tabular-nums">${r.distKm.toFixed(1)} km</td>
+            <td class="py-1.5 px-1.5 text-right txt-secondary tabular-nums">${formatDurationHM(r.totalMins)}</td>
+            <td class="py-1.5 pl-1.5 text-right font-bold txt-accent tabular-nums">
+              ${commercialKmh.toFixed(1)} km/h
+            </td>
+          </tr>
+        `;
+      });
+
+      html += `</tbody></table>`;
+      container.innerHTML = html;
+    }
+
+    /**
+     * =========================================================================
+     * 10. BUCLE DE SIMULACIÓN EN TIEMPO REAL (CON FILTRO SENSIBLE AL ZOOM)
+     * =========================================================================
+     */
+    const activeMarkersLayer = L.layerGroup().addTo(map);
+    let simMinutes = 465; // Inicia 07:45 AM
+    let isPlaying = true;
+    let lastTimestamp = performance.now();
+    let selectedScenario = "normal";
+    let selectedDayMode = "weekday"; // "weekday" (Lun-Vie), "weekend" (Sáb-Dom) o "0".."6"
+    let lineFilter = "all";
+    let lastRenderedHour = -1;
+
+    function updateDayButtonsUI() {
+      const isFindeLargo = selectedScenario === "finde_largo";
+      document.querySelectorAll(".day-btn").forEach((btn) => {
+        const mode = btn.dataset.dayMode;
+        const isSelected = mode === selectedDayMode;
+        if (mode === "0") {
+          btn.textContent = isFindeLargo ? "Lun*" : "Lun";
+          btn.title = isFindeLargo ? "Lunes Feriado (Cronograma Domingos y Feriados)" : "Lunes";
+        }
+        if (mode === "weekday" || mode === "weekend") {
+          btn.className = isSelected
+            ? "day-btn active py-1.5 px-2 rounded-lg bg-sky-600 text-white border border-sky-400 text-[11px] font-semibold cursor-pointer"
+            : "day-btn app-control py-1.5 px-2 rounded-lg border text-[11px] font-semibold cursor-pointer";
+        } else {
+          btn.className = isSelected
+            ? "day-btn active py-1 px-1 rounded-lg bg-sky-600 text-white border border-sky-400 text-[10.5px] font-semibold cursor-pointer"
+            : "day-btn app-control py-1 px-1 rounded-lg border text-[10.5px] font-semibold cursor-pointer";
+        }
+      });
+
+      const badge = document.getElementById("day-rule-badge");
+      const clockDayLabel = document.getElementById("clock-day-label");
+
+      if (selectedDayMode === "weekday") {
+        if (badge) {
+          badge.textContent = "Consolidado Lunes a Viernes";
+          badge.className = "text-[10px] font-semibold text-emerald-600";
+        }
+        if (clockDayLabel) {
+          clockDayLabel.textContent = "Día de Semana (Lun–Vie) · 24 h";
+        }
+        return;
+      }
+
+      if (selectedDayMode === "weekend") {
+        if (badge) {
+          badge.textContent = "Consolidado Sábado y Domingo";
+          badge.className = "text-[10px] font-semibold text-sky-600";
+        }
+        if (clockDayLabel) {
+          clockDayLabel.textContent = "Fin de Semana (Sáb–Dom) · 24 h";
+        }
+        return;
+      }
+
+      const dayIdx = Number(selectedDayMode);
+      const isLunesFeriado = isFindeLargo && dayIdx === 0;
+
+      if (badge) {
+        if (isLunesFeriado) {
+          badge.textContent = "Lunes Feriado · Cronograma Dom/Fer";
+          badge.className = "text-[10px] font-semibold text-amber-600";
+        } else if (dayIdx === 5) {
+          badge.textContent = "Cronograma Sábados";
+          badge.className = "text-[10px] font-semibold text-sky-600";
+        } else if (dayIdx === 6) {
+          badge.textContent = isFindeLargo ? "Domingo (Refuerzo 306 pasa a Lun)" : "Cronograma Domingos";
+          badge.className = "text-[10px] font-semibold text-sky-600";
+        } else if (dayIdx >= 1 && dayIdx <= 3) {
+          badge.textContent = "Hábil · Roca 302/303 susp. obras";
+          badge.className = "text-[10px] font-medium txt-secondary";
+        } else {
+          badge.textContent = "Día Hábil Individual";
+          badge.className = "text-[10px] font-semibold text-emerald-600";
+        }
+      }
+
+      if (clockDayLabel) {
+        const dayTitle = isLunesFeriado ? "Lunes (Feriado)" : DAY_NAMES[dayIdx];
+        clockDayLabel.textContent = `${dayTitle} · Ciclo 24 h`;
+      }
+    }
+
+    function renderSimulationFrame() {
+      activeMarkersLayer.clearLayers();
+      const listEl = document.getElementById("active-trains");
+      const clockEl = document.getElementById("clock-display");
+      const sliderEl = document.getElementById("time-slider");
+      const countBadgeEl = document.getElementById("active-count-badge");
+      const zoomScopeBadgeEl = document.getElementById("zoom-scope-badge");
+
+      const normalizedMins = ((simMinutes % 1440) + 1440) % 1440;
+      clockEl.textContent = formatMinutes(normalizedMins);
+      sliderEl.value = Math.floor(normalizedMins);
+
+      const currentZoom = map.getZoom();
+      const isZoomFiltered = currentZoom >= ZOOM_FILTER_THRESHOLD;
+      const viewBounds = map.getBounds().pad(0.12);
+      const mapCenterLatLng = map.getCenter();
+      const centerCoords = [mapCenterLatLng.lat, mapCenterLatLng.lng];
+
+      let prevDayLabel = "";
+      if (selectedDayMode === "weekday") {
+        prevDayLabel = "Noche previa (L–V)";
+      } else if (selectedDayMode === "weekend") {
+        prevDayLabel = "Noche previa (Finde)";
+      } else {
+        prevDayLabel = `Salida ${DAY_SHORT[(Number(selectedDayMode) + 6) % 7]}`;
+      }
+
+      const activeTrains = [];
+      const liveLineCounts = {
+        "Línea Mitre": 0,
+        "Línea Roca": 0,
+        "Línea San Martín": 0,
+        "Línea Sarmiento": 0,
+        total: 0
+      };
+
+      RAIL_SERVICES.forEach((service) => {
+        if (lineFilter !== "all" && service.linea !== lineFilter) return;
+
+        // 1) Corridas iniciadas hoy
+        if (isServiceActiveForMode(service, selectedDayMode, selectedScenario, false)) {
+          const kinToday = evaluateServiceKinematics(service, normalizedMins);
+          if (kinToday) {
+            const distToCenterKm = haversineKm(kinToday.pos, centerCoords);
+            const isNearby = viewBounds.contains(L.latLng(kinToday.pos[0], kinToday.pos[1]));
+            activeTrains.push({
+              service,
+              trainCode: getServiceDisplayTrainCode(service, selectedDayMode),
+              dayOriginLabel: "Hoy",
+              ...kinToday,
+              distToCenterKm,
+              isNearby
+            });
+            liveLineCounts[service.linea] += 1;
+            liveLineCounts.total += 1;
+          }
+        }
+
+        // 2) Corridas nocturnas iniciadas ayer que completan recorrido hoy (+1d)
+        const startMins = toMinutes(service.salida);
+        if (startMins + service.duracionMin >= 1440) {
+          if (isServiceActiveForMode(service, selectedDayMode, selectedScenario, true)) {
+            const kinPrevNight = evaluateServiceKinematics(service, normalizedMins + 1440);
+            if (kinPrevNight) {
+              const distToCenterKm = haversineKm(kinPrevNight.pos, centerCoords);
+              const isNearby = viewBounds.contains(L.latLng(kinPrevNight.pos[0], kinPrevNight.pos[1]));
+              activeTrains.push({
+                service,
+                trainCode: getServiceDisplayTrainCode(service, selectedDayMode),
+                dayOriginLabel: prevDayLabel,
+                ...kinPrevNight,
+                distToCenterKm,
+                isNearby
+              });
+              liveLineCounts[service.linea] += 1;
+              liveLineCounts.total += 1;
+            }
+          }
+        }
+      });
+
+      // Actualizar contadores del panel inferior y gráfico 24h
+      document.getElementById("pill-count-mitre").textContent = liveLineCounts["Línea Mitre"];
+      document.getElementById("pill-count-roca").textContent = liveLineCounts["Línea Roca"];
+      document.getElementById("pill-count-sanmartin").textContent = liveLineCounts["Línea San Martín"];
+      document.getElementById("pill-count-sarmiento").textContent = liveLineCounts["Línea Sarmiento"];
+      document.getElementById("pill-count-total").textContent = liveLineCounts.total;
+
+      drawEvolutionChart(normalizedMins, liveLineCounts);
+
+      const currentHour = Math.floor(normalizedMins / 60);
+      if (currentHour !== lastRenderedHour) {
+        lastRenderedHour = currentHour;
+        renderHourlyTable(currentHour);
+      }
+
+      // Dibujar pelotitas direccionales en el mapa
+      activeTrains.forEach((item) => {
+        const {
+          service,
+          trainCode,
+          pos,
+          headingDeg,
+          currentLegLabel,
+          speedKmh,
+          progress,
+          dayOriginLabel
+        } = item;
+
+        const arrowColor = service.clase === "Diferencial" ? "#0f172a" : "#ffffff";
+
+        const ballIcon = L.divIcon({
+          className: "",
+          html: `
+            <div class="${getBallCssClass(service)}" style="transform: rotate(${headingDeg.toFixed(1)}deg);">
+              <svg class="train-ball-arrow" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 1L10.5 10.5L6 8.2L1.5 10.5L6 1Z" fill="${arrowColor}" />
+              </svg>
+            </div>
+          `,
+          iconSize: [21, 21],
+          iconAnchor: [10.5, 10.5]
+        });
+
+        L.marker(pos, { icon: ballIcon })
+          .bindTooltip(
+            `<strong>${service.linea} · Tren ${trainCode}</strong> (${service.clase})<br/>` +
+            `Sentido: <strong>${service.origen} → ${service.destino}</strong><br/>` +
+            `Tramo: <strong>${currentLegLabel}</strong><br/>` +
+            `Cartelera (${dayOriginLabel}): ${service.salida} – ${service.llegada} (${Math.round(progress * 100)}%)<br/>` +
+            `Velocidad tramo: <strong>${speedKmh.toFixed(1)} km/h</strong>`,
+            { direction: "top", offset: [0, -11], className: "adaptive-tooltip" }
+          )
+          .addTo(activeMarkersLayer);
+      });
+
+      // Filtrado lateral sensible al zoom
+      const visibleTrains = isZoomFiltered
+        ? activeTrains
+            .filter((item) => item.isNearby)
+            .sort((a, b) => a.distToCenterKm - b.distToCenterKm)
+        : activeTrains;
+
+      if (isZoomFiltered) {
+        countBadgeEl.textContent = `${visibleTrains.length} cercanos (${activeTrains.length} total)`;
+        if (zoomScopeBadgeEl) {
+          zoomScopeBadgeEl.textContent = `Cercanos al visor · Zoom ${currentZoom}`;
+          zoomScopeBadgeEl.className =
+            "text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-300 border border-sky-500/30 shrink-0";
+        }
+      } else {
+        countBadgeEl.textContent = `${activeTrains.length} en circulación`;
+        if (zoomScopeBadgeEl) {
+          zoomScopeBadgeEl.textContent = `Todos los corredores · Zoom ${currentZoom}`;
+          zoomScopeBadgeEl.className =
+            "app-control text-[10px] font-medium px-2 py-0.5 rounded-full border shrink-0";
+        }
+      }
+
+      if (activeTrains.length === 0) {
+        listEl.innerHTML = `
+          <div class="app-card border rounded-xl p-3 text-xs txt-muted text-center">
+            No hay formaciones en circulación en este horario para la jornada seleccionada. Desliza la barra temporal o haz clic en el gráfico 24 h.
+          </div>
+        `;
+        return;
+      }
+
+      if (visibleTrains.length === 0 && isZoomFiltered) {
+        listEl.innerHTML = `
+          <div class="app-card border rounded-xl p-3 text-xs txt-muted text-center space-y-1">
+            <div class="txt-primary font-medium">Sin trenes en el área cercana (Zoom ${currentZoom})</div>
+            <div>Hay <strong>${activeTrains.length}</strong> formación(es) circulando en otros sectores de la red. Aleja el zoom o desplaza el mapa.</div>
+          </div>
+        `;
+        return;
+      }
+
+      const cardsHtml = visibleTrains.map((item) => {
+        const {
+          service,
+          trainCode,
+          pos,
+          currentLegLabel,
+          progress,
+          totalDurationMins,
+          totalDistKm,
+          traveledKm,
+          speedKmh,
+          distToCenterKm,
+          dayOriginLabel
+        } = item;
+
+        const accentHex = getAccentHex(service);
+        const proximityTag = isZoomFiltered
+          ? `<span class="text-[10px] txt-accent font-medium">· a ${distToCenterKm.toFixed(1)} km</span>`
+          : "";
+
+        const originBadge = dayOriginLabel !== "Hoy"
+          ? `<span class="app-control text-[9.5px] px-1.5 py-0.2 rounded border ml-1">${dayOriginLabel}</span>`
+          : "";
+
+        return `
+          <div
+            onclick="window.focusTrainAt(${pos[0]}, ${pos[1]})"
+            title="Clic para centrar el mapa en esta formación"
+            class="app-card-interactive border rounded-xl p-2 text-xs shadow-sm cursor-pointer"
+            style="border-left: 4px solid ${accentHex};"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <span class="txt-primary font-bold">${service.linea} · Tren ${trainCode}${originBadge}</span>
+              <span class="text-[11px] font-bold txt-accent tabular-nums">${speedKmh.toFixed(1)} km/h</span>
+            </div>
+            <div class="txt-secondary font-medium mt-0.5">${service.origen} → ${service.destino} ${proximityTag}</div>
+            <div class="txt-muted text-[10px] mt-0.5">${currentLegLabel} · ${service.clase}</div>
+            <div class="txt-muted flex items-center justify-between text-[11px] mt-1 tabular-nums">
+              <span>${service.salida} – ${service.llegada} (${formatDurationHM(totalDurationMins)})</span>
+              <span>${traveledKm.toFixed(1)} / ${totalDistKm.toFixed(1)} km</span>
+            </div>
+            <div class="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden mt-1.5">
+              <div class="h-full rounded-full" style="width: ${(progress * 100).toFixed(1)}%; background-color: ${accentHex};"></div>
+            </div>
+          </div>
+        `;
+      });
+
+      listEl.innerHTML = cardsHtml.join("");
+    }
+
+    window.focusTrainAt = function (lat, lon) {
+      map.flyTo([lat, lon], Math.max(9, map.getZoom()), { duration: 0.75 });
+    };
+
+    window.jumpToMinute = function (minuteVal) {
+      simMinutes = ((Number(minuteVal) % 1440) + 1440) % 1440;
+      renderSimulationFrame();
+    };
+
+    function animationLoop(timestamp) {
+      const dtSeconds = (timestamp - lastTimestamp) / 1000;
+      lastTimestamp = timestamp;
+
+      if (isPlaying) {
+        const speedSelect = document.getElementById("speed-select");
+        const speedMultiplier = Number(speedSelect.value) || 180;
+        simMinutes = (simMinutes + (dtSeconds * speedMultiplier) / 60) % 1440;
+        renderSimulationFrame();
+      }
+
+      requestAnimationFrame(animationLoop);
+    }
+
+    /**
+     * =========================================================================
+     * 11. INICIALIZACIÓN DE EVENTOS DE INTERFAZ Y CONTROLES
+     * =========================================================================
+     */
+    window.addEventListener("load", () => {
+      try {
+        drawRailwayNetwork();
+        updateDayButtonsUI();
+        renderSpeedSummaryTable();
+        rebuildEvolutionData();
+        renderSimulationFrame();
+
+        // Mostrar/ocultar localidades intermedias y actualizar lista lateral al cambiar el zoom
+        map.on("zoomend", () => {
+          updateLabelsVisibilityByZoom();
+          renderSimulationFrame();
+        });
+        map.on("moveend", () => {
+          if (map.getZoom() >= ZOOM_FILTER_THRESHOLD) {
+            renderSimulationFrame();
+          }
+        });
+
+        window.addEventListener("resize", () => {
+          map.invalidateSize();
+          renderSimulationFrame();
+        });
+
+        // Alternar Tema Claro / Oscuro
+        const btnThemeToggle = document.getElementById("btn-theme-toggle");
+        btnThemeToggle.addEventListener("click", () => {
+          applyTheme(!isDarkTheme);
+        });
+
+        // Botón Pausar / Reanudar
+        const btnToggle = document.getElementById("btn-toggle");
+        btnToggle.addEventListener("click", () => {
+          isPlaying = !isPlaying;
+          btnToggle.textContent = isPlaying ? "Pausar" : "Reanudar";
+        });
+
+        // Botón Más rápido x10
+        const btnBoost10x = document.getElementById("btn-boost-10x");
+        const speedSelect = document.getElementById("speed-select");
+        btnBoost10x.addEventListener("click", () => {
+          const currentVal = Number(speedSelect.value) || 180;
+          const boosted = Math.min(3600, currentVal * 10);
+          let matchedOption = Array.from(speedSelect.options).find((opt) => Number(opt.value) === boosted);
+          if (!matchedOption) {
+            matchedOption = document.createElement("option");
+            matchedOption.value = String(boosted);
+            matchedOption.textContent = `Velocidad ${boosted}x`;
+            speedSelect.appendChild(matchedOption);
+          }
+          speedSelect.value = String(boosted);
+        });
+
+        // Deslizador manual de hora
+        const sliderEl = document.getElementById("time-slider");
+        sliderEl.addEventListener("input", (e) => {
+          simMinutes = Number(e.target.value);
+          renderSimulationFrame();
+        });
+
+        // Selector de escenario semanal
+        const scenarioSelect = document.getElementById("scenario-select");
+        scenarioSelect.addEventListener("change", (e) => {
+          selectedScenario = e.target.value;
+          updateDayButtonsUI();
+          rebuildEvolutionData();
+          renderSimulationFrame();
+        });
+
+        // Botones de jornada (Día de Semana, Fin de Semana y días individuales)
+        document.querySelectorAll(".day-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            selectedDayMode = btn.dataset.dayMode;
+            updateDayButtonsUI();
+            rebuildEvolutionData();
+            renderSimulationFrame();
+          });
+        });
+
+        // Filtro por línea ferroviaria
+        document.querySelectorAll(".line-filter-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            lineFilter = btn.dataset.lineFilter;
+            document.querySelectorAll(".line-filter-btn").forEach((b) => {
+              const isSelected = b === btn;
+              b.className = isSelected
+                ? "line-filter-btn active py-1.5 px-1.5 rounded-lg bg-sky-600 text-white border border-sky-400 text-[10.5px] font-semibold cursor-pointer"
+                : "line-filter-btn app-control py-1.5 px-1.5 rounded-lg border text-[10.5px] font-semibold cursor-pointer";
+            });
+            rebuildEvolutionData();
+            renderSimulationFrame();
+          });
+        });
+
+        // Botones rápidos de mapa base
+        document.querySelectorAll(".basemap-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            setActiveBaseMap(btn.dataset.basemap);
+          });
+        });
+
+        // Pestañas del panel inferior (Gráfico 24 h vs Tabla Horaria)
+        document.querySelectorAll(".analytics-tab-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            activeAnalyticsTab = btn.dataset.analyticsTab;
+            document.querySelectorAll(".analytics-tab-btn").forEach((b) => {
+              b.classList.toggle("active", b === btn);
+            });
+            const chartView = document.getElementById("analytics-view-chart");
+            const tableView = document.getElementById("analytics-view-table");
+            const styleGroup = document.getElementById("chart-style-group");
+
+            if (activeAnalyticsTab === "chart") {
+              chartView.classList.remove("hidden");
+              tableView.classList.add("hidden");
+              styleGroup.classList.remove("hidden");
+              renderSimulationFrame();
+            } else {
+              chartView.classList.add("hidden");
+              tableView.classList.remove("hidden");
+              styleGroup.classList.add("hidden");
+              renderHourlyTable(Math.floor(((simMinutes % 1440) + 1440) % 1440 / 60));
+            }
+          });
+        });
+
+        // Modo de visualización del gráfico (Líneas por corredor vs Barras apiladas)
+        document.querySelectorAll(".chart-mode-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            chartRenderMode = btn.dataset.chartMode;
+            document.querySelectorAll(".chart-mode-btn").forEach((b) => {
+              b.classList.toggle("active", b === btn);
+            });
+            renderSimulationFrame();
+          });
+        });
+
+        // Ocultar / Mostrar panel inferior debajo del mapa
+        const btnToggleAnalytics = document.getElementById("btn-toggle-analytics");
+        const bottomBody = document.getElementById("bottom-analytics-body");
+        btnToggleAnalytics.addEventListener("click", () => {
+          const willHide = !bottomBody.classList.contains("hidden");
+          bottomBody.classList.toggle("hidden", willHide);
+          btnToggleAnalytics.textContent = willHide ? "Mostrar panel" : "Ocultar panel";
+          setTimeout(() => {
+            map.invalidateSize();
+            if (!willHide) renderSimulationFrame();
+          }, 60);
+        });
+
+        // Interacción de clic y hover sobre el gráfico Canvas 24 h
+        const evoCanvas = document.getElementById("evolution-chart");
+        const evoTooltip = document.getElementById("chart-hover-tooltip");
+
+        function minuteFromCanvasEvent(e) {
+          const rect = evoCanvas.getBoundingClientRect();
+          const padLeft = 32;
+          const padRight = 14;
+          const plotW = Math.max(40, rect.width - padLeft - padRight);
+          const relX = Math.max(0, Math.min(plotW, e.clientX - rect.left - padLeft));
+          return Math.round((relX / plotW) * 1439);
+        }
+
+        evoCanvas.addEventListener("click", (e) => {
+          const targetMin = minuteFromCanvasEvent(e);
+          simMinutes = targetMin;
+          renderSimulationFrame();
+        });
+
+        evoCanvas.addEventListener("mousemove", (e) => {
+          const hoverMin = minuteFromCanvasEvent(e);
+          const counts = countOperatingByLineAtMinute(hoverMin, selectedDayMode, selectedScenario, lineFilter);
+          const rect = evoCanvas.getBoundingClientRect();
+          const localX = e.clientX - rect.left;
+          const tooltipX = localX > rect.width - 175 ? localX - 165 : localX + 12;
+
+          evoTooltip.innerHTML = `
+            <div class="font-bold mb-0.5">${formatMinutes(hoverMin)} · Total: ${counts.total}</div>
+            <div style="color:#2563eb;">● Mitre: <strong>${counts["Línea Mitre"]}</strong></div>
+            <div style="color:#ea580c;">● Roca: <strong>${counts["Línea Roca"]}</strong></div>
+            <div style="color:#10b981;">● San Martín: <strong>${counts["Línea San Martín"]}</strong></div>
+            <div style="color:#9333ea;">● Sarmiento: <strong>${counts["Línea Sarmiento"]}</strong></div>
+            <div class="opacity-70 text-[9.5px] mt-0.5">Clic para ir a este horario</div>
+          `;
+          evoTooltip.style.left = `${Math.max(8, tooltipX)}px`;
+          evoTooltip.style.top = `8px`;
+          evoTooltip.classList.remove("hidden");
+        });
+
+        evoCanvas.addEventListener("mouseleave", () => {
+          evoTooltip.classList.add("hidden");
+        });
+
+        lastTimestamp = performance.now();
+        requestAnimationFrame(animationLoop);
+      } catch (err) {
+        console.error("Error al inicializar el visor ferroviario:", err);
+      }
+    });
+  </script>
+</body>
+</html>
